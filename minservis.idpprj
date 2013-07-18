@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <FileVersion>
+    <Major>1</Major>
+    <Minor>0</Minor>
+    <Patch>0</Patch>
+  </FileVersion>
+  <SDKVersion>
+    <Major>1</Major>
+    <Minor>1</Minor>
+    <Patch>1</Patch>
+  </SDKVersion>
+  <Name>New Project</Name>
+  <Services>
+    <Service>
+      <Name>NewProject</Name>
+      <SIN>128</SIN>
+      <Properties>
+        <Property xsi:type="StringProperty">
+          <Name>banner</Name>
+          <PIN>201</PIN>
+          <Value>service started</Value>
+        </Property>
+        <Property xsi:type="StringProperty">
+          <Name>mb1_conf</Name>
+          <PIN>1</PIN>
+          <Value>41100;1;0;1;0;70000;</Value>
+        </Property>
+        <Property xsi:type="StringProperty">
+          <Name>mb2_conf</Name>
+          <PIN>2</PIN>
+          <Value>41100;1;0;1;0;70000;</Value>
+        </Property>
+      </Properties>
+      <SourceFiles>
+        <SourceFile>
+          <Name>main.lua</Name>
+          <Source>--
+-- Service: NewProject
+-- Created: 2013-07-18
+--
+
+module(..., package.seeall)
+
+--
+-- Version information (required)
+--
+_VERSION = "1.0.0"
+
+--
+-- Module Constants
+--
+local PERIODIC_ACTION_DELAY = 50
+
+--
+-- Module Globals
+--
+local timer
+local tPins                   -- Table that contains all PINs defined
+local mb485Q                  -- Modbus queue in RS485
+local modbushandle            -- Modbus handler
+
+local control_table = { }     -- Control table of PIN values
+local address_table = { }
+local loop
+
+----------------------------------
+--  ModbusDemo function parameters
+----------------------------------
+local mod_address
+local mod_register
+local mod_base
+local mod_read_write
+
+-- For reading
+local mod_bits
+local mod_direction
+local mod_threshold
+
+--
+-- Perform periodic action
+--
+
+function PrintSomething(_index)
+    print( _index,"-- --", control_table[_index] ) 
+end
+
+local function baca_properti()
+    local propField      -- to store properties definition
+    local property_value -- to store property value
+    tPins = svcmgr.getPropList(128)   -- Get properties list
+    print(_NAME, ": getPropList ")
+  
+    -- Fill control_table with initial values
+    table.foreach(tPins, function(k,v) table.insert(control_table,v,0) end )  --tekan kene lancar
+    table.foreach(control_table, PrintSomething)
+end
+
+
+local function timerExpired()
+  print(_NAME, ": timer expired")
+  timer:arm(PERIODIC_ACTION_DELAY)
+end
+
+
+local function OpenConnection()
+
+--[[ Openning a Modbus connection  : sys.modbus.open (id, mode, baud, parity, plcAddr) 
+     Parameters:
+       id      The serial channel ID (RS232 or RS485)
+       mode    The Modbus transmission mode to use (MODE_RTU or MODE_ASCII). 
+               RTU connections use 8 data bits, while ASCII connections use 7 data bits.
+       baud    The baud rate to use on the serial channel (optional;default is 9600)
+       parity  The parity to use on the serial channel (optional; default is PARITY_EVEN). 
+               PARITY_NONE is only supported with MODE_RTU on IDP terminals.
+       plcAddr Boolean indicating whether PLC addressing should be used (optional; default is false)  
+       
+      .... see T202 document
+  ]]
+       
+  local handle, error = sys.modbus.open(sys.modbus.RS485, sys.modbus.MODE_RTU, 9600, sys.modbus.PARITY_NONE)
+  
+   --
+   if handle == nil then
+       --trace(_NAME, " modbus connection has failed. ", error,". ", os.date())
+       print(_NAME, " MODBUS GAGAL. ")
+   else
+       modbushandle = handle
+       print(_NAME, " MODBUS BERHASIL ++++. ")
+   end
+ 
+   return not (modbushandle == nil)
+   --]]   
+end
+
+
+--
+-- Run service (required)
+--
+function entry()
+    print(_NAME, ": ", properties.banner)
+  
+    if OpenConnection() then
+        print(_NAME, " MODBUS sukasuka connection open. ", os.date())   
+    else
+        print (_NAME, "MODBUS GAGAL !!!!!!!")
+    end
+    
+    baca_properti()
+    
+    timer = sys.timer.create()
+    timer:arm(PERIODIC_ACTION_DELAY)
+    local timerQ = sched.createEventQ(1, '_TIMER', timer)
+    while true do
+        local q, event, args = sched.waitQ(-1,  timerQ)
+        if q == timerQ then
+            timerExpired()
+        end
+    end
+end
+
+--
+-- Initialize service (required)
+--
+function init()
+
+end
+
+</Source>
+        </SourceFile>
+      </SourceFiles>
+    </Service>
+  </Services>
+  <PropertyValues />
+</Project>
