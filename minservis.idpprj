@@ -140,34 +140,31 @@ local function fillParameters(pName, conf_params)
 --       Value to write will be taken from  modbusDataXX (16 bits only)
 -- -------------------------------------------------------------------------
 local val_counter = 1
- 
-mod_address = nil
-mod_register = nil
-mod_base = nil
-mod_read_write = nil
-
-mod_bits = nil
-mod_direction = nil
-mod_threshold = nil
-
-mod_value = nil
-mod_times = nil
+local mb_addr = nil
+local mb_reg = nil
+local mb_base = nil
+local mb_rw = nil
+local mb_bit = nil
+local mb_dir = nil
+local mb_threshold = nil
+local mb_value = nil
+local mb_times = nil
 
 
  -- don't use "while extract_field(conf_params) == true do", doesn't mean the same
  -- due to configuration of function "extract_field()"
 while extract_field(conf_params) ~= false do 
     if val_counter == 1 then
-        mod_address, conf_params = extract_field(conf_params)
-        if tonumber(mod_address) == 0 then
+        mb_addr, conf_params = extract_field(conf_params)
+        if tonumber(mb_addr) == 0 then
             trace("ERROR: invalid value for 'address' ", os.date())
             print("ERROR 1")
             return false
         end
         elseif val_counter == 2 then
             --print("param: ", conf_params)
-            mod_register, conf_params = extract_field(conf_params)
-            if tonumber(mod_register) == nil then
+            mb_reg, conf_params = extract_field(conf_params)
+            if tonumber(mb_reg) == nil then
                 trace("ERROR: wrong value for 'base' (must be 0 or 1) ", os.date())
                 print("ERROR 2")
             return false
@@ -175,48 +172,48 @@ while extract_field(conf_params) ~= false do
         elseif val_counter == 3 then
             --print("param: ", conf_params)
             
-            mod_base, conf_params = extract_field(conf_params)
-            if tonumber(mod_base) ~= 0 and tonumber(mod_base) ~= 1 then
+            mb_base, conf_params = extract_field(conf_params)
+            if tonumber(mb_base) ~= 0 and tonumber(mb_base) ~= 1 then
                 trace("ERROR: wrong value for 'base' (must be 0 or 1) ", os.date())
                 print("ERROR 3")
             return false
         end
         elseif val_counter == 4 then
-            mod_read_write, conf_params = extract_field(conf_params)
-            if tonumber(mod_read_write) ~= 0 and tonumber(mod_read_write) ~= 1 then
+            mb_rw, conf_params = extract_field(conf_params)
+            if tonumber(mb_rw) ~= 0 and tonumber(mb_rw) ~= 1 then
                 trace("ERROR: wrong value for 'read/write' (must be 0 or 1) ", os.date())
                 print("ERROR 4")
             return false
         end
         elseif val_counter == 5 then
-            if tonumber(mod_read_write) == 0 then
-                mod_bits, conf_params = extract_field(conf_params)
-                if tonumber(mod_bits) ~= 1 and tonumber(mod_bits) ~= 2 then
+            if tonumber(mb_rw) == 0 then
+                mb_bit, conf_params = extract_field(conf_params)
+                if tonumber(mb_bit) ~= 1 and tonumber(mb_bit) ~= 2 then
                     trace("ERROR: wrong value for 'bits' (must be 1 or 2)", os.date())
                     print("ERROR 5A")
                 return false
             end
             else
-                mod_value, conf_params = extract_field(conf_params)
-                if tonumber(mod_value) == nil or
-                not (tonumber(mod_value) &gt;= 0 and tonumber(mod_value) &lt;= 65535) then
+                mb_value, conf_params = extract_field(conf_params)
+                if tonumber(mb_value) == nil or
+                not (tonumber(mb_value) &gt;= 0 and tonumber(mb_value) &lt;= 65535) then
                     trace("ERROR: invalid value for 'value' (must be between 0 and 65535) ", os.date())
                     print("ERROR 5B")
                     return false
                 end
             end
         elseif val_counter == 6 then
-            if tonumber(mod_read_write) == 0 then
-                mod_direction, conf_params = extract_field(conf_params)
-            if tonumber(mod_direction) == nil or
-            not (tonumber(mod_direction) &gt;= 0 and tonumber(mod_direction) &lt;= 5) then
+            if tonumber(mb_rw) == 0 then
+                mb_dir, conf_params = extract_field(conf_params)
+            if tonumber(mb_dir) == nil or
+            not (tonumber(mb_dir) &gt;= 0 and tonumber(mb_dir) &lt;= 5) then
                 trace("ERROR: invalid value for 'direction' (must be between 1 and 5) ", os.date())
                 print("ERROR 6A")
                 return false
             end
         else
-            mod_times, conf_params = extract_field(conf_params)
-            if tonumber(mod_times) == nil then
+            mb_times, conf_params = extract_field(conf_params)
+            if tonumber(mb_times) == nil then
                 trace("ERROR: invalid value for 'times' ", os.date())
                 print("ERROR 6B")
                 return false
@@ -224,9 +221,9 @@ while extract_field(conf_params) ~= false do
             break
         end
         elseif val_counter == 7 then
-            if tonumber(mod_read_write) == 0 then
-                mod_threshold, conf_params = extract_field(conf_params)
-                if tonumber(mod_threshold) == nil then
+            if tonumber(mb_rw) == 0 then
+                mb_threshold, conf_params = extract_field(conf_params)
+                if tonumber(mb_threshold) == nil then
                     trace("ERROR: invalid value for 'threshold' ", os.date())
                     print("ERROR 7")
                     return false
@@ -237,54 +234,55 @@ while extract_field(conf_params) ~= false do
     val_counter = val_counter + 1
     end
  
-    if tonumber(mod_register) == nil then
+    if tonumber(mb_reg) == nil then
         trace("ERROR: missing parameter or delimitation for 'address' ", os.date())
         print ("ERROR register A")
         return false
-    elseif string.len(mod_register) ~= 5 then
-        trace("ERROR: wrong value for 'address', expecting 5 digits ",mod_address, " ", os.date())
+    elseif string.len(mb_reg) ~= 5 then
+        trace("ERROR: wrong value for 'address', expecting 5 digits ",mb_reg, " ", os.date())
         print ("ERROR register B")
         return false
     end
  
-    if tonumber(mod_base) ~= 0 and tonumber(mod_base) ~= 1 then
+    if tonumber(mb_base) ~= 0 and tonumber(mb_base) ~= 1 then
         trace("ERROR: missing parameter or delimitation for 'base' ", os.date())
         print ("ERROR base")
         return false
     end
  
-    if tonumber(mod_read_write) ~= 0 and tonumber(mod_read_write) ~= 1 then
+    if tonumber(mb_rw) ~= 0 and tonumber(mb_rw) ~= 1 then
         trace("ERROR: missing parameter or delimitation for 'read/write' ", os.date())
         print ("ERROR rw")
         return false
     end
  
-    if tonumber(mod_read_write) == 0 then
-        if tonumber(mod_bits) ~= 1 and tonumber(mod_bits) ~= 2 then
+    if tonumber(mb_rw) == 0 then
+        if tonumber(mb_bit) ~= 1 and tonumber(mb_bit) ~= 2 then
             trace("ERROR: missing parameter or delimitation for 'bits' ", os.date())
             return false
         end
-        if tonumber(mod_direction) == nil or
-        not (tonumber(mod_direction) &gt;= 0 and tonumber(mod_direction) &lt;= 5) then
+        if tonumber(mb_dir) == nil or
+        not (tonumber(mb_dir) &gt;= 0 and tonumber(mb_dir) &lt;= 5) then
             trace("ERROR: missing parameter or delimitation for 'direction' ", os.date())
             return false
         end
-        if tonumber(mod_threshold) == nil then
+        if tonumber(mb_threshold) == nil then
             trace("ERROR: missing parameter or delimitation for 'threshold' ", os.date())
             return false
         end
     else
-        if tonumber(mod_value) == nil then
+        if tonumber(mb_value) == nil then
             trace("ERROR: missing parameter or delimitation for 'value' ", os.date())
             return false
         end
-        if tonumber(mod_times) == nil then
+        if tonumber(mb_times) == nil then
             trace("ERROR: missing parameter or delimitation for 'times' ", os.date())
             return false
         end
     end
     
-    return true
+    return true, mb_addr, mb_reg, mb_base, mb_rw, mb_bit, mb_dir, mb_threshold, mb_value, mb_times
+
 end
 
 --[
@@ -304,38 +302,36 @@ local function baca_properti()
     table.foreach(control_table, PrintSomething)
 end
 
-local function readHoldingRegister(pin, idslave, register)
-    print ("pin: ", pin, ", idslave: ", idslave, ", reg: ", register - mod_base, ", modbit: ", mod_bits, ", timeout: ", COMMAND_TIMEOUT * 1000)
+local function readHoldingRegister(idslave, register, base, bit)
+    --print ("idslave: ", idslave, ", reg: ", register - base, ", modbit: ", bit, ", timeout: ", COMMAND_TIMEOUT * 1000)
     
-    local result, error = modbushandle:readholdingregs(idslave, register - mod_base, mod_bits, COMMAND_TIMEOUT*1000)
+    
+    local result, error = modbushandle:readholdingregs(idslave, register - base, bit, COMMAND_TIMEOUT*1000)
     local q, event, success, error, count, data, raw = mb485Q:wait(-1)
     local extracted_value = 0
     
-    
     if success then
-        print ("sukses !! terima data")
-        
-        
+        --print ("sukses !! terima data")
         local buf = sys.buffer.create(data)
-        if tonumber(mod_bits) == 1 then
+        if tonumber(bit) == 1 then
             extracted_value = buf:getInt16()
-            tracef("%s: Reading register #%d = 0x%04X , %s\n", _NAME, mod_address, extracted_value, os.date() )
+            tracef("%s: Reading register #%d = 0x%04X , %s\n", _NAME, register, extracted_value, os.date() )
             
         else
             extracted_value = buf:getInt32()
-            tracef("%s: Reading register #%d = 0x%08X , %s\n", _NAME, mod_address, extracted_value , os.date() )
+            tracef("%s: Reading register #%d = 0x%08X , %s\n", _NAME, register, extracted_value , os.date() )
         end
         
-        print("ext_value: ", extracted_value)
+        --print("ext_value: ", extracted_value)
         -- Save new content read in property modbusDataXX :
         --svcmgr.setProp(128, pin_pos + 100 , data )
-        return true
+        return true, extracted_value
     else
-        trace("ERROR: ", error, ". Function readholdingregs(). Address (", mod_address,") ",os.date())
+        trace("ERROR: ", error, ". Function readholdingregs(). Address (", register,") ",os.date())
         print("GAGAL terima modbus")
-        return false
+        return false, nil
     end   
-    
+    --]
 
 --[[
         if conditionRequest(extracted_value, tonumber(mod_direction) , tonumber(mod_threshold), pin_pos) then
@@ -349,22 +345,30 @@ end
 
 
 local function parsing_cmd_modbus(no , nama, params)
-    print("___ function parsing: ", nama, ": ", params)
-
-    if fillParameters(nama, params) then
-        --print ("alm: ", mod_address,", reg: ", mod_register, ", base: ",mod_base, ", rw: ",mod_read_write)
-        if tonumber(mod_read_write) == 0 and string.sub(mod_register, 1,1) == "4" then  -- rx:0, reg:4xxxx
-            print(" Read modbus holding register(s):", no, ", addr: ", mod_address, ", reg: ", tonumber(string.sub(mod_register, 2))) --
-            readHoldingRegister(no , mod_address, tonumber(string.sub(mod_register, 2)) )  -- Take out the first address caracter
-        elseif tonumber(mod_read_write) == 1 and string.sub(mod_register, 1,1) == "4" then   
+    --print("___ function parsing: ", nama, ": ", params)
+    local tf, mb_addr, mb_reg, mb_base, mb_rw, mb_bit, mb_dir, mb_threshold, mb_value, mb_times = fillParameters(nama, params)
+    --print ("alm: ", mb_addr,", reg: ", mb_reg, ", base: ",mb_base, ", rw: ",mb_rw)
+    
+    if tf then
+        
+        if tonumber(mb_rw) == 0 and string.sub(mb_reg, 1,1) == "4" then  -- rx:0, reg:4xxxx
+            --print(" Read holding register(s):", no, ", addr: ", mb_addr, ", reg: ", tonumber(string.sub(mb_reg, 2))) --
+            -- Take out the first address caracter
+            --[
+            local tf, hasil = readHoldingRegister(mb_addr, tonumber(string.sub(mb_reg, 2)), mb_base, mb_bit )  
+            if tf then
+                print ("Nilai[", mb_reg, "]: ", hasil)
+            end
+            --]]
+        elseif tonumber(mb_rw) == 1 and string.sub(mb_reg, 1,1) == "4" then   
             -- Write in a modbus holding register ---
-            --[[
+            --
             if tonumber(mod_times) &gt; 0 then
                 WritingLoop("HOLDING_REG", nPin, tonumber(string.sub(mod_address, 2))) -- Take out the first address caracter                     
             end
-            --]]
+            --
         else
-            trace(_NAME, " : modbus function can not be executed with given address ", mod_address , ".", os.date())
+            trace(_NAME, " : modbus function can not be executed with given address ", mb_reg , ".", os.date())
         end                  
     end
     --]]
@@ -380,6 +384,7 @@ local function loop_properti()
             parsing_cmd_modbus(nPin, propField.name, property_value)
         end
     end
+    collectgarbage('collect')
 end
 
 
@@ -461,7 +466,7 @@ end
         <SourceFile>
           <Name>util.lua</Name>
           <Source>
---[
+--[[
 module(..., package.seeall)
 
 
