@@ -51,6 +51,26 @@ Format:
           <PIN>2</PIN>
           <Value>1;41700;1;0;2;0;70000;</Value>
         </Property>
+        <Property xsi:type="DataProperty">
+          <Name>mb1_data</Name>
+          <PIN>101</PIN>
+          <Items>
+            <unsignedByte>0</unsignedByte>
+            <unsignedByte>0</unsignedByte>
+            <unsignedByte>0</unsignedByte>
+            <unsignedByte>0</unsignedByte>
+          </Items>
+        </Property>
+        <Property xsi:type="DataProperty">
+          <Name>mb2_data</Name>
+          <PIN>102</PIN>
+          <Items>
+            <unsignedByte>0</unsignedByte>
+            <unsignedByte>0</unsignedByte>
+            <unsignedByte>0</unsignedByte>
+            <unsignedByte>0</unsignedByte>
+          </Items>
+        </Property>
       </Properties>
       <SourceFiles>
         <SourceFile>
@@ -302,7 +322,39 @@ local function baca_properti()
     table.foreach(control_table, PrintSomething)
 end
 
-local function readHoldingRegister(idslave, register, base, bit)
+-- http://twolivesleft.com/Codea/Talk/discussion/2531/hex-or-binary-to-float/p1 --
+local function hexToFloat(str)
+    tab={["0"]="0000",["1"]="0001",["2"]="0010",["3"]="0011",
+         ["4"]="0100",["5"]="0101",["6"]="0110",["7"]="0111",
+         ["8"]="1000",["9"]="1001",["a"]="1010",["b"]="1011",
+         ["c"]="1100",["d"]="1101",["e"]="1110",["f"]="1111",
+         ["A"]="1010",["B"]="1011",["C"]="1100",["D"]="1101",["E"]="1110",["F"]="1111"}
+
+    local str1=""
+    local a,z
+    for z=1,string.len(str) do
+        a=string.sub(str,z,z)
+        str1=str1..tab[a]
+    end
+    local pm=string.sub(str1,1,1)
+    local exp=string.sub(str1,2,9)
+    local c=tonumber(exp,2)-127
+    local p=math.pow(2,c)
+    local man="1"..string.sub(str1,10,32)
+    local x=0
+    for z=1,string.len(man) do
+        if string.sub(man,z,z)=="1" then
+            x=x+p
+        end
+        p=p/2
+    end
+    if pm=="1" then
+        x= -x
+    end    
+    return(x)
+end
+
+local function readHoldingRegister(pin, idslave, register, base, bit)
     --print ("idslave: ", idslave, ", reg: ", register - base, ", modbit: ", bit, ", timeout: ", COMMAND_TIMEOUT * 1000)
     
     
@@ -324,7 +376,11 @@ local function readHoldingRegister(idslave, register, base, bit)
         
         --print("ext_value: ", extracted_value)
         -- Save new content read in property modbusDataXX :
-        --svcmgr.setProp(128, pin_pos + 100 , data )
+        local eror = svcmgr.setProp(128, pin + 100 , extracted_value )
+        if error == nil then
+            print("error: ", eror)
+         end
+        
         return true, extracted_value
     else
         trace("ERROR: ", error, ". Function readholdingregs(). Address (", register,") ",os.date())
@@ -350,26 +406,24 @@ local function parsing_cmd_modbus(no , nama, params)
     --print ("alm: ", mb_addr,", reg: ", mb_reg, ", base: ",mb_base, ", rw: ",mb_rw)
     
     if tf then
-        
         if tonumber(mb_rw) == 0 and string.sub(mb_reg, 1,1) == "4" then  -- rx:0, reg:4xxxx
             --print(" Read holding register(s):", no, ", addr: ", mb_addr, ", reg: ", tonumber(string.sub(mb_reg, 2))) --
             -- Take out the first address caracter
-            --[
-            local tf, hasil = readHoldingRegister(mb_addr, tonumber(string.sub(mb_reg, 2)), mb_base, mb_bit )  
+            local tf, hasil = readHoldingRegister(no, mb_addr, tonumber(string.sub(mb_reg, 2)), mb_base, mb_bit )  
             if tf then
                 print ("Nilai[", mb_reg, "]: ", hasil)
             end
-            --]]
         elseif tonumber(mb_rw) == 1 and string.sub(mb_reg, 1,1) == "4" then   
             -- Write in a modbus holding register ---
-            --
-            if tonumber(mod_times) &gt; 0 then
-                WritingLoop("HOLDING_REG", nPin, tonumber(string.sub(mod_address, 2))) -- Take out the first address caracter                     
+            if tonumber(mb_times) &gt; 0 then
+            --    WritingLoop("HOLDING_REG", nPin, tonumber(string.sub(mod_address, 2))) -- Take out the first address caracter                     
             end
             --
         else
             trace(_NAME, " : modbus function can not be executed with given address ", mb_reg , ".", os.date())
-        end                  
+        end
+    else
+            
     end
     --]]
 end
@@ -427,6 +481,14 @@ local function OpenConnection()
    --]]   
 end
 
+function Dec2Hex(nValue)
+    if type(nValue) == "string" then
+        nValue = tonumber(nValue);
+    end 
+    nHexVal = string.format("%X", nValue);  -- %X returns uppercase hex, %x gives lowercase letters
+    sHexVal = nHexVal.."";
+    return sHexVal;
+end
 
 --
 -- Run service (required)
@@ -440,6 +502,10 @@ function entry()
     else
         print (_NAME, "MODBUS GAGAL !!!!!!!")
     end
+    
+    --print(hexToFloat("C58EBF11"))    -- -4567.89
+    --print(hexToFloat("42f6e979"))    -- 123.456
+    --print(hexToFloat("3f9e0610"))    -- 1.23456
     
     baca_properti()
     
