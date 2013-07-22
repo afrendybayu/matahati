@@ -13,7 +13,7 @@
   <Name>New Project</Name>
   <Services>
     <Service>
-      <Name>NewProject</Name>
+      <Name>Mengangkasa</Name>
       <SIN>128</SIN>
       <Properties>
         <Property xsi:type="StringProperty">
@@ -72,6 +72,12 @@ Format:
           </Items>
         </Property>
       </Properties>
+      <ForwardMessages>
+        <Message>
+          <Name>NewMessage</Name>
+          <MIN>1</MIN>
+        </Message>
+      </ForwardMessages>
       <SourceFiles>
         <SourceFile>
           <Name>main.lua</Name>
@@ -101,8 +107,19 @@ local WORKER_THREAD_DELAY = 50
 -- Module Globals
 --
 
+local SOH  = 0x01
+local EOT  = 0x04
+local DLE  = 0x10
+local XON  = 0x11
+local XOFF = 0x13
+
 local workerThreadHandle = nil
 local modbusThreadHandle = nil
+
+local serHandle = nil         -- handle sending and receiving data over serial port.
+local serQ                    -- event queue associated with the RS232 serial port.
+local isWaitingData           -- whether we are currently waiting for data on the serial port.
+
 
 local timer
 local tPins                   -- Table that contains all PINs defined
@@ -544,17 +561,170 @@ local function modbus_init()
 end
 
 --
+local DMRFrameConfig =  {
+    maxRxSize = 2048,
+    maxTxSize = 2048,
+    minFrameSize = 5,  -- prefix + length + chksum
+    frameStart = SOH,
+    frameEnd = EOT,
+    escapeBytes = string.char(SOH, EOT, DLE, XON, XOFF),
+    escapeMapping =   {
+        string.char(DLE, SOH+0x20),
+        string.char(DLE, EOT+0x20),
+        string.char(DLE, DLE+0x20),
+        string.char(DLE, XON+0x20),
+        string.char(DLE, XOFF+0x20)
+    },
+    errorDetection = '*crc16'  -- 16-bit checksum mode
+}
+--]]
+
+local function serial_config()
+    serHandle.writestr(serHandle, "pra serial konfig\r\n")
+    if serHandle ~= nil then  
+        -- flush both communication buffers.
+        local res, err = serHandle:flush('*b')
+        serHandle.writestr(serHandle, "serial konfig\r\n")
+        if not res then
+          svc.log.addDbgLog(svc.log.ERROR, string.format(
+            "%s: could not flush RS232 buffers (%s)", _NAME, err or "unknown error"))
+        end
+    
+        -- cancel any event that may be pending on the serial port.
+        res, err = serHandle:cancelEvent()
+    
+        if not res then
+            svc.log.addDbgLog(svc.log.ERROR, string.format(
+                "%s: could not cancel events on serial port (%s)", _NAME, err or "unknown error"))
+        else
+            isWaitingData = false
+        end
+
+        serHandle:setFrameConfig(DMRFrameConfig)
+
+        --[[
+        -- configure the serial port for RAW data transfer.
+        if properties.useRawPayload then
+          res, err = serHandle:setFrameConfig({maxTxSize = MAX_FORWARD_SIZE - 2, maxRxSize = MAX_RETURN_SIZE - 2})
+          maxReadSize = MAX_RETURN_SIZE - 2
+        else
+          res, err = serHandle:setFrameConfig({maxTxSize = maxTxPayloadSize, maxRxSize = maxRxPayloadSize})
+          maxReadSize = maxRxPayloadSize
+        end
+    
+        -- Warn if readSize is invalid.
+        if properties.readSize &gt; maxReadSize then
+          svc.log.addDbgLog(svc.log.WARNING, string.format(
+            "%s: readSize will be ignored (%d &gt; %d)", _NAME, properties.readSize, maxReadSize))
+        end
+    
+        if not res then
+          svc.log.addDbgLog(svc.log.ERROR, string.format(
+            "%s: could not configure serial port (%s)", _NAME, err or "unknown error"))
+        end
+        --]]
+        -- clear and destroy the queue used for receiving serial events, if there is one.
+        if serQ ~= nil then     -- pastikan nilai awal serQ NIL
+            serQ:clear()
+            serQ:destroy()
+            serQ = nil
+        end
+
+        -- create queue used for receiving serial events.
+        serQ = sched.createEventQ(5, serHandle:source())
+        --print("serQ create event")
+        serHandle.writestr(serHandle, "serQ create event")
+        -- reset the BREAK counter.
+        --breakCount = 0
+    end
+end
+
+local function serial_req()
+    serHandle.writestr(serHandle, "serial req thread\n")
+    while true do
+        -- ensure we always listen for the next frame.
+        isWaitingData = (serHandle ~= nil) and (isWaitingData or serHandle:eventOnFrame(
+          math.min(properties.readSize, maxReadSize), properties.readIdleTimeout))
+        -- wait for ANY event to occur.
+        local args = { sched.waitQ(-1, serQ) }
+        local srcQ, evt = table.remove(args, 1), table.remove(args, 1)
+    
+        if srcQ == serQ then
+            if evt == 'FRAME' then
+                serHandle.writestr(serHandle, "serial frame")
+                -- ensure we wait for the next frame right away, only if we still are connected.
+                --isWaitingData = (serHandle ~= nil) and serHandle:eventOnFrame(
+                --  math.min(properties.readSize, maxReadSize), properties.readIdleTimeout)
+                --onFrameReceived(unpack(args))
+            elseif evt == 'BREAK' then
+                --onBreakReceived()
+            else
+                trace(_NAME, ": unsupported RS232 event ( ", evt, " )")
+            end
+        end
+    end    
+end
+
+local function serial_init()
+    --print("masuk tes serial")
+    svc.shell.detach()
+    -- wait a bit for the serial port to be released.
+    sched.delay(1)
+    local handle, err = svc.rs232.connect()
+    if handle then
+        serHandle = handle
+--        serHandle.writestr(handle, "serial init\r\n")
+        serial_config()
+        serHandle.writestr(handle, "serial sudah konfig\n")
+
+        local data = { 0xAA, 0xBB, 0xCC } -- data with XON in middle.
+        --local lenHi = bit32.rshift(#data, 8)
+        --local lenLow = bit32.band(#data, 0xFF)        
+        serHandle:writeframe(data)
+        
+        --disconnect(handle)
+        return true
+    else
+        printf("Error opening rs232 connection (%s)\n", err)
+        return false
+    end
+end
+
+local function tes_serial()
+    print("masuk tes serial")
+    svc.shell.detach()
+    -- wait a bit for the serial port to be released.
+    sched.delay(1)
+    local handle, err = svc.rs232.connect()
+    if handle then
+        handle.writestr(handle, "AT+SENDGSM\r\n")
+        --handle:writestr("")
+        
+        --[
+        handle:setFrameConfig(DMRFrameConfig)
+        local data = { 0xAA, 0xBB, 0xCC } -- data with XON in middle.
+        local lenHi = bit32.rshift(#data, 8)
+        local lenLow = bit32.band(#data, 0xFF)
+        
+        --handle:writeframe({ 3, lenHi, lenLow }, data)
+        handle:writeframe(data)
+        --]]
+        disconnect(handle)
+    else
+        printf("Error opening rs232 connection (%s)\n", err)
+    end
+    end
+
+--
 -- Run service (required)
 --
 function entry()
     print(_NAME, ": ", properties.banner)
   
-    
-    
-    --print(hexToFloat("C58EBF11"))    -- -4567.89
-    --print(hexToFloat("42f6e979"))    -- 123.456
+    --print(hexToFloat("C58EBF11"))    -- -4567.89    --print(hexToFloat("42f6e979"))    -- 123.456
     --print(hexToFloat("3f9e0610"))    -- 1.23456
     
+    --[[
     local mb = modbus_init()
     if mb then 
         print ("modbus TERBUKA")
@@ -562,6 +732,18 @@ function entry()
         modbusThreadHandle = sched.spawn("modbus_thread", modbus_req)
         sched.delay(1)
     end
+    --]]
+    
+    local ser = serial_init()
+    --[
+    if ser then
+        --print ("serial terbuka")
+        serHandle.writestr(serHandle, "serial terbuka\n")
+        serialThreadHandle = sched.spawn("serial_thread", serial_req)
+        sched.delay(1)
+        
+    end
+    --]]
     
     
     print ("masuk thread worker")
