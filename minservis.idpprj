@@ -524,6 +524,13 @@ end
 -- Function called when service terminated
 --
 function onTermination()
+    if serialThreadHandle then
+        disconnect(serHandle)
+        svc.shell.attach()
+        serialThreadHandle:destroy()
+        serialThreadHandle = nil
+    end
+    
     if workerThreadHandle then
         print(_NAME, ": terminating worker thread")
         workerThreadHandle:destroy()
@@ -535,6 +542,8 @@ function onTermination()
         modbusThreadHandle:destroy()
         modbusThreadHandle = nil
     end
+    
+    
 end
 
 
@@ -581,32 +590,13 @@ local DMRFrameConfig =  {
 --]]
 
 local function onFrameReceived(success, frameOrError)
-    serHandle.writestr(serHandle, frameOrError)
+ --   serHandle.writestr(serHandle, frameOrError)
     if success then
         serHandle.writestr(serHandle, frameOrError)
         serHandle.writestr(serHandle, " sukses\r\n")
     else
         serHandle.writestr(serHandle, " gagal\r\n")
     end
-    
-    --[[
-    if type(frameOrError) ~= 'string' then
-        svc.log.addDbgLog(svc.log.ERROR, string.format("%s: invalid RS232 data received", _NAME))
-    elseif not success then
-        svc.log.addDbgLog(svc.log.ERROR, string.format(
-            "%s: invalid RS232 data received (%s)", _NAME, frameOrError or "unknown error"))
-    elseif #frameOrError &gt; 0 then
-        local hasSent, hasLost, err = msgBuffer:beginSend(frameOrError)
-
-        if not hasSent then
-            svc.log.addDbgLog(svc.log.ERROR, string.format(
-                "%s: could not send/queue RS232 data (%s)", _NAME, err or "unknown error"))
-            sendStatusReport('rxDataLost')
-        elseif hasLost then
-            sendStatusReport('rxDataLost')
-        end
-    end
-    --]]
 end
 
 
@@ -671,8 +661,8 @@ local function serial_config()
 end
 
 local function serial_req()
-    local tulis = "serial req thread\n"
-    serHandle.writestr(serHandle, tulis)
+    --local tulis = "serial req thread\n"
+    --serHandle.writestr(serHandle, tulis)
     isWaitingData = nil
     local hslFrame = nil
     while true do
@@ -724,10 +714,10 @@ local function serial_init()
         serHandle.writestr(serHandle, "serial sudah konfig\n")
         --serHandle.writestr(serHandle, "AT+SENDFILE\r\n")
         
-        local data = { 0xAA, 0xBB, 0xCC } -- data with XON in middle.
+        --local data = { 0xAA, 0xBB, 0xCC } -- data with XON in middle.
         --local lenHi = bit32.rshift(#data, 8)
         --local lenLow = bit32.band(#data, 0xFF)        
-        serHandle:writeframe(data)
+        --serHandle:writeframe(data)
         
         --disconnect(handle)
         return true
