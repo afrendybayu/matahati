@@ -81,6 +81,7 @@ Format:
       <SourceFiles>
         <SourceFile>
           <Name>main.lua</Name>
+          <Description>File utama kopi lua</Description>
           <Source>--
 -- Service: NewProject
 -- Created: 2013-07-18
@@ -579,6 +580,36 @@ local DMRFrameConfig =  {
 }
 --]]
 
+local function onFrameReceived(success, frameOrError)
+    serHandle.writestr(serHandle, frameOrError)
+    if success then
+        serHandle.writestr(serHandle, frameOrError)
+        serHandle.writestr(serHandle, " sukses\r\n")
+    else
+        serHandle.writestr(serHandle, " gagal\r\n")
+    end
+    
+    --[[
+    if type(frameOrError) ~= 'string' then
+        svc.log.addDbgLog(svc.log.ERROR, string.format("%s: invalid RS232 data received", _NAME))
+    elseif not success then
+        svc.log.addDbgLog(svc.log.ERROR, string.format(
+            "%s: invalid RS232 data received (%s)", _NAME, frameOrError or "unknown error"))
+    elseif #frameOrError &gt; 0 then
+        local hasSent, hasLost, err = msgBuffer:beginSend(frameOrError)
+
+        if not hasSent then
+            svc.log.addDbgLog(svc.log.ERROR, string.format(
+                "%s: could not send/queue RS232 data (%s)", _NAME, err or "unknown error"))
+            sendStatusReport('rxDataLost')
+        elseif hasLost then
+            sendStatusReport('rxDataLost')
+        end
+    end
+    --]]
+end
+
+
 local function serial_config()
     serHandle.writestr(serHandle, "pra serial konfig\r\n")
     if serHandle ~= nil then  
@@ -640,28 +671,43 @@ local function serial_config()
 end
 
 local function serial_req()
-    serHandle.writestr(serHandle, "serial req thread\n")
+    local tulis = "serial req thread\n"
+    serHandle.writestr(serHandle, tulis)
+    isWaitingData = nil
+    local hslFrame = nil
     while true do
         -- ensure we always listen for the next frame.
-        isWaitingData = (serHandle ~= nil) and (isWaitingData or serHandle:eventOnFrame(
-          math.min(properties.readSize, maxReadSize), properties.readIdleTimeout))
+        --isWaitingData = (serHandle ~= nil) and (isWaitingData or serHandle:eventOnFrame(
+        --  math.min(properties.readSize, maxReadSize), properties.readIdleTimeout))
         -- wait for ANY event to occur.
-        local args = { sched.waitQ(-1, serQ) }
+        sched.delay(20)
+        serHandle.writestr(serHandle, "AT+SENDFILE\r\n")
+        
+        
+        --isWaitingData = (serHandle ~= nil) and (isWaitingData or serHandle:eventOnFrame(0,500))
+        isWaitingData = (serHandle ~= nil) and (serHandle:eventOnFrame(100,500))
+        
+        --isWaitingData = nil
+        local args = { sched.waitQ(-1, serQ) }  --  -1: wait forever, 
         local srcQ, evt = table.remove(args, 1), table.remove(args, 1)
-    
+        --[
         if srcQ == serQ then
             if evt == 'FRAME' then
-                serHandle.writestr(serHandle, "serial frame")
+                --serHandle.writestr(serHandle, "serial frame\r\n")
                 -- ensure we wait for the next frame right away, only if we still are connected.
                 --isWaitingData = (serHandle ~= nil) and serHandle:eventOnFrame(
                 --  math.min(properties.readSize, maxReadSize), properties.readIdleTimeout)
-                --onFrameReceived(unpack(args))
+                onFrameReceived(unpack(args))
             elseif evt == 'BREAK' then
                 --onBreakReceived()
             else
                 trace(_NAME, ": unsupported RS232 event ( ", evt, " )")
             end
+        else
+            serHandle.writestr(serHandle, "bukan event\r\n")
         end
+        --]]
+        
     end    
 end
 
@@ -675,8 +721,9 @@ local function serial_init()
         serHandle = handle
 --        serHandle.writestr(handle, "serial init\r\n")
         serial_config()
-        serHandle.writestr(handle, "serial sudah konfig\n")
-
+        serHandle.writestr(serHandle, "serial sudah konfig\n")
+        --serHandle.writestr(serHandle, "AT+SENDFILE\r\n")
+        
         local data = { 0xAA, 0xBB, 0xCC } -- data with XON in middle.
         --local lenHi = bit32.rshift(#data, 8)
         --local lenLow = bit32.band(#data, 0xFF)        
@@ -689,31 +736,6 @@ local function serial_init()
         return false
     end
 end
-
-local function tes_serial()
-    print("masuk tes serial")
-    svc.shell.detach()
-    -- wait a bit for the serial port to be released.
-    sched.delay(1)
-    local handle, err = svc.rs232.connect()
-    if handle then
-        handle.writestr(handle, "AT+SENDGSM\r\n")
-        --handle:writestr("")
-        
-        --[
-        handle:setFrameConfig(DMRFrameConfig)
-        local data = { 0xAA, 0xBB, 0xCC } -- data with XON in middle.
-        local lenHi = bit32.rshift(#data, 8)
-        local lenLow = bit32.band(#data, 0xFF)
-        
-        --handle:writeframe({ 3, lenHi, lenLow }, data)
-        handle:writeframe(data)
-        --]]
-        disconnect(handle)
-    else
-        printf("Error opening rs232 connection (%s)\n", err)
-    end
-    end
 
 --
 -- Run service (required)
