@@ -75,7 +75,7 @@ Format:
       <ForwardMessages>
         <Message>
           <Name>NewMessage</Name>
-          <MIN>1</MIN>
+          <MIN>11</MIN>
         </Message>
       </ForwardMessages>
       <SourceFiles>
@@ -102,11 +102,13 @@ _VERSION = "1.0.0"
 local PERIODIC_ACTION_DELAY = 50
 local COMMAND_TIMEOUT  = 5    -- Timeout of a modbus query/write function (in secs)
 local COMMAND_INTERVAL = 1   -- Time between register queries (in secs)
-local WORKER_THREAD_DELAY = 50
+local WORKER_THREAD_DELAY = 100
 
 --
 -- Module Globals
 --
+
+local messageHandle = nil
 
 local SOH  = 0x01
 local EOT  = 0x04
@@ -513,11 +515,112 @@ function Dec2Hex(nValue)
     return sHexVal;
 end
 
-local function workerThread()
-    while true do
-        print(_NAME, ": worker thread running")
-        sched.delay(WORKER_THREAD_DELAY)
+function PrintProperties(_index)
+    print( _index,"__ __", control_table[_index] ) -- index=PIN
+end
+--]]
+
+local function baca_prop20()
+    local propField      -- to store properties definition
+    local property_value -- to store property value
+    tPins = svcmgr.getPropList(20)   -- Get properties list
+    print(_NAME, ": getPropList ")
+  
+    -- Fill control_table with initial values
+    table.foreach(tPins, function(k,v) table.insert(control_table,v,0) end )  --tekan kene lancar
+    table.foreach(control_table, PrintSomething)
+    control_table = {}
+end
+
+local merdeka
+
+local function bacabaca()
+    --local isi_table = { }
+    --isi_table = svcmgr.getInfo(20)
+    --print(string.format("SIN     = %d", isi_table.sin))
+    --print(string.format("Nama    = %s", isi_table.name))
+    --print(string.format("Versi   = %s", isi_table.version))
+    
+    --isi_table = svcmgr.getPropList(20)
+    --isi_table = svcmgr.getPropDef(20,6);
+    --table.foreach (isi_table, print)
+    --local lati
+    --local fixVali
+    --lati = svcmgr.getProp(20,6)
+    --fixVali = svcmgr.getProp(20,2)
+    
+    
+    if svcmgr.getProp(20,2) then
+        print(string.format("---- FixValid loop = %d", merdeka))
+        --print(string.format("source = %d ", svcmgr.getProp(20,1)) )
+        --print(string.format("fixTipe = %d ", svcmgr.getProp(20,3)) )
+        print(string.format("lat     = %d (%3.5f degrees)", svcmgr.getProp(20,6), svcmgr.getProp(20,6)*6/360000))
+        print(string.format("lon     = %d (%3.5f degrees)", svcmgr.getProp(20,7), svcmgr.getProp(20,7)*6/360000))
+        print(string.format("Alti    = %d", svcmgr.getProp(20,8)))
+        print(string.format("speed   = %d (%3.1f km/h)", svcmgr.getProp(20,9), svcmgr.getProp(20,9)/5.4))
+        print(string.format("heading = %d (%2d dgrees)", svcmgr.getProp(20,10), svcmgr.getProp(20,10)/10))
+        print(string.format("fixTime = %d ", svcmgr.getProp(20,11)) )
+        print(string.format("fixAge = %d ", svcmgr.getProp(20,12)) )
     end
+    
+    --[[
+    if lati == nil then 
+        --print("nilai nil")
+    else
+        --print("lati    : ", lati)
+        print("fixValid: ", fixVali)
+--        print("temp    : ", getTemp())            -- ERROR
+--        print("ID      : ", getNetworkId())       -- ERROR
+    end
+    --print("mobileID    : ", svcmgr.getProp(27,3))
+    --print("networkID   : ", svcmgr.getProp(27,4))
+    --print("model       : ", svcmgr.getProp(27,1))
+    
+    --print("port 1      : ", svcmgr.getProp(25,1))
+    --svcmgr.setProp(25, 1, 4)
+    --print("port 1      : ", svcmgr.getProp(25,1))
+    --print("Nilai port1 : ", svcmgr.getProp(25,11))
+    --]]
+    
+end
+
+
+
+local function workerThread()
+    local options = {priority=4}
+    --if svc.position.requestFix("3D", 1, 1) then -- get 3D GPS fix immediately
+    
+        while true do
+            print(_NAME, ": worker thread running")
+            --baca_prop20()
+            local hsl = 0
+            sched.delay(WORKER_THREAD_DELAY)
+            merdeka = merdeka + 1
+            
+            --messageHandle:send(1, {text = reportText})
+            --[
+            bacabaca()
+            if svc.position.requestFix("3D", 5, 5) then -- get 3D GPS fix immediately
+                
+                --tracef("** [D] %s - %s: SUCCEEDED requesting a GPS fix from position service. ", os.date(), _NAME)
+                --properties.TerminalTime = os.date("%d").."/"..os.date("%m").."/"..os.date("%Y").." "..
+                --                os.date("%H")..":"..os.date("%M")..":"..os.date("%S")    
+                --properties.String = "Merdeka"
+                --local hsl = messageHandle:send(2, {TerminalTime = 1234567, 
+                --    Latitude=svcmgr.getProp(20,6), Longitude=svcmgr.getProp(20,7), 
+                --    Speed=svcmgr.getProp(20,9), Heading=svcmgr.getProp(20,10)})
+                --local hsl = messageHandle:send(3, {angka=345} )
+            else
+            --tracef("** [D] %s - %s: FAILED requesting a GPS fix from postion service.", os.date(), _NAME)
+                print("gagal ")
+            end   
+        end
+    --[[
+    else
+            --tracef("** [D] %s - %s: FAILED requesting a GPS fix from postion service.", os.date(), _NAME)
+            print("gagal ")
+    end   
+    --]]
 end
 
 
@@ -727,6 +830,34 @@ local function serial_init()
     end
 end
 
+
+function sendReport1(reportText)
+    print(_NAME, ": sending report1 with text = ", reportText)
+    messageHandle:send(1, {text = reportText})
+end
+
+function echoCmd(args)
+    if #args &gt; 0 then
+        for i = 1, #args do
+            print("args[", i, "] = ", args[i])
+        end
+    else
+        print("*** error: no arguments (usage: \"echo arg1 [arg2 ...]\")")
+  end
+end
+
+local function DataCmd(args)
+    print(string.format("lat     = %d (%3.5f degrees)", svcmgr.getProp(20,6), svcmgr.getProp(20,6)*6/360000))
+    print(string.format("lon     = %d (%3.5f degrees)", svcmgr.getProp(20,7), svcmgr.getProp(20,7)*6/360000))
+    print(string.format("speed   = %d (%3.1f km/h)", svcmgr.getProp(20,9), svcmgr.getProp(20,9)/5.4))
+    print(string.format("heading = %d (%2d dgrees)", svcmgr.getProp(20,10), svcmgr.getProp(20,10)/10))
+end
+
+local function shell_init()
+    svc.shell.register("echo", echoCmd, "Print arguments")
+    svc.shell.register("cek_data", DataCmd, "Cek Data")
+end
+
 --
 -- Run service (required)
 --
@@ -746,8 +877,8 @@ function entry()
     end
     --]]
     
+    --[[
     local ser = serial_init()
-    --[
     if ser then
         --print ("serial terbuka")
         serHandle.writestr(serHandle, "serial terbuka\n")
@@ -757,8 +888,8 @@ function entry()
     end
     --]]
     
-    
-    print ("masuk thread worker")
+    merdeka = 0
+    --print ("masuk thread worker")
     modbusThreadHandle = sched.spawn("worker_thread", workerThread)
     sched.delay(-1)
     
@@ -771,23 +902,17 @@ end
 -- Initialize service (required)
 --
 function init()
-
+    messageHandle = svc.message.register(_SIN)
+    if not messageHandle then
+        --svc.log.addDbgLog(svc.log.CRITICAL, string.format("%s SIN already registered", _NAME))
+        print("SIN sudah registered")
+    else
+        print("SIN lanjut saja")
+    end
+    shell_init()
 end
 
 </Source>
-        </SourceFile>
-        <SourceFile>
-          <Name>util.lua</Name>
-          <Source>
---[[
-module(..., package.seeall)
-
-
-function PrintSomething(_index)
-    print( _index,"__ __", control_table[_index] ) -- index=PIN
-end
-
---]]</Source>
         </SourceFile>
         <SourceFile>
           <Name>modbus.lua</Name>
