@@ -72,12 +72,30 @@ Format:
           </Items>
         </Property>
       </Properties>
-      <ForwardMessages>
+      <ReturnMessages>
         <Message>
-          <Name>NewMessage</Name>
-          <MIN>11</MIN>
+          <Name>PesanCijolang</Name>
+          <MIN>1</MIN>
+          <Fields>
+            <Field xsi:type="SignedIntField">
+              <Name>latx</Name>
+              <Size>32</Size>
+            </Field>
+            <Field xsi:type="SignedIntField">
+              <Name>longx</Name>
+              <Size>32</Size>
+            </Field>
+            <Field xsi:type="SignedIntField">
+              <Name>speedx</Name>
+              <Size>32</Size>
+            </Field>
+            <Field xsi:type="SignedIntField">
+              <Name>headx</Name>
+              <Size>32</Size>
+            </Field>
+          </Fields>
         </Message>
-      </ForwardMessages>
+      </ReturnMessages>
       <SourceFiles>
         <SourceFile>
           <Name>main.lua</Name>
@@ -102,7 +120,11 @@ _VERSION = "1.0.0"
 local PERIODIC_ACTION_DELAY = 50
 local COMMAND_TIMEOUT  = 5    -- Timeout of a modbus query/write function (in secs)
 local COMMAND_INTERVAL = 1   -- Time between register queries (in secs)
+--local WORKER_THREAD_DELAY = 100     -- 100=10detik, klo 100*6*60=36000-5=1jam
+local MENGIRIM_THREAD_DELAY = 36000
+local KURANG_DELAY = 50
 local WORKER_THREAD_DELAY = 100
+
 
 --
 -- Module Globals
@@ -118,6 +140,7 @@ local XOFF = 0x13
 
 local workerThreadHandle = nil
 local modbusThreadHandle = nil
+local mengirimThreadHandle = nil
 
 local serHandle = nil         -- handle sending and receiving data over serial port.
 local serQ                    -- event queue associated with the RS232 serial port.
@@ -533,6 +556,25 @@ local function baca_prop20()
 end
 
 local merdeka
+local lati
+local longi
+local alti
+local headi
+local speedi
+local DataAda = nil
+
+--[
+local function kirim_data_satelit()
+    local antrix
+    local errorx
+    print("Kirim ke satelit")
+    antrix, errorx = messageHandle:send(1, {latx=lati,longx=longi,speedx=speedi,headx=headi})
+    print(string.format("antri: %d", antrix))
+    if antrix == 0 then
+        print(string.format("error: %s", errorx))
+    end
+end
+--]]
 
 local function bacabaca()
     --local isi_table = { }
@@ -551,17 +593,28 @@ local function bacabaca()
     
     
     if svcmgr.getProp(20,2) then
-        print(string.format("---- FixValid loop = %d", merdeka))
+        --print(string.format("---- FixValid loop = %d", merdeka))
         --print(string.format("source = %d ", svcmgr.getProp(20,1)) )
         --print(string.format("fixTipe = %d ", svcmgr.getProp(20,3)) )
-        print(string.format("lat     = %d (%3.5f degrees)", svcmgr.getProp(20,6), svcmgr.getProp(20,6)*6/360000))
-        print(string.format("lon     = %d (%3.5f degrees)", svcmgr.getProp(20,7), svcmgr.getProp(20,7)*6/360000))
-        print(string.format("Alti    = %d", svcmgr.getProp(20,8)))
-        print(string.format("speed   = %d (%3.1f km/h)", svcmgr.getProp(20,9), svcmgr.getProp(20,9)/5.4))
-        print(string.format("heading = %d (%2d dgrees)", svcmgr.getProp(20,10), svcmgr.getProp(20,10)/10))
-        print(string.format("fixTime = %d ", svcmgr.getProp(20,11)) )
-        print(string.format("fixAge = %d ", svcmgr.getProp(20,12)) )
+        --print(string.format("lat     = %d (%3.5f degrees)", svcmgr.getProp(20,6), svcmgr.getProp(20,6)*6/360000))
+        --print(string.format("lon     = %d (%3.5f degrees)", svcmgr.getProp(20,7), svcmgr.getProp(20,7)*6/360000))
+        --print(string.format("Alti    = %d", svcmgr.getProp(20,8)))
+        --print(string.format("speed   = %d (%3.1f km/h)", svcmgr.getProp(20,9), svcmgr.getProp(20,9)/5.4))
+        --print(string.format("heading = %d (%2d dgrees)", svcmgr.getProp(20,10), svcmgr.getProp(20,10)/10))
+        --print(string.format("fixTime = %d ", svcmgr.getProp(20,11)) )
+        --print(string.format("fixAge = %d ", svcmgr.getProp(20,12)) )
+        lati   = svcmgr.getProp(20,6)       -- *6/360000
+        longi  = svcmgr.getProp(20,7)       -- *6/360000
+        alti   = svcmgr.getProp(20,8)
+        speedi = svcmgr.getProp(20,9)       -- /5.4
+        headi  = svcmgr.getProp(20,10)      -- /10
+        DataAda = 1
     end
+    
+    if DataAda == 1 then
+        --kirim_data_satelit()    
+    end
+    
     
     --[[
     if lati == nil then 
@@ -584,14 +637,32 @@ local function bacabaca()
     
 end
 
-
+local function kirim_req()
+    print ("masuk fungsi kirim_req")
+    local awalun = true
+    while awalun do
+        print("Coba dulu 5 detik")
+        if DataAda == 1 then
+            kirim_data_satelit()
+            awalun = false           
+        end
+        sched.delay(KURANG_DELAY)
+    end
+    print("Kirim Setiap 1 jam")
+    while true do
+        sched.delay(MENGIRIM_THREAD_DELAY-KURANG_DELAY)
+        --if DataAda == 1 then
+            kirim_data_satelit()      
+        --end
+    end
+end
 
 local function workerThread()
     local options = {priority=4}
     --if svc.position.requestFix("3D", 1, 1) then -- get 3D GPS fix immediately
     
         while true do
-            print(_NAME, ": worker thread running")
+            --print(_NAME, ": worker thread running")
             --baca_prop20()
             local hsl = 0
             sched.delay(WORKER_THREAD_DELAY)
@@ -599,9 +670,9 @@ local function workerThread()
             
             --messageHandle:send(1, {text = reportText})
             --[
-            bacabaca()
+            
             if svc.position.requestFix("3D", 5, 5) then -- get 3D GPS fix immediately
-                
+                bacabaca()
                 --tracef("** [D] %s - %s: SUCCEEDED requesting a GPS fix from position service. ", os.date(), _NAME)
                 --properties.TerminalTime = os.date("%d").."/"..os.date("%m").."/"..os.date("%Y").." "..
                 --                os.date("%H")..":"..os.date("%M")..":"..os.date("%S")    
@@ -646,7 +717,11 @@ function onTermination()
         modbusThreadHandle = nil
     end
     
-    
+    if mengirimThreadHandle then
+        print(_NAME, ": terminating mengirim thread")
+        mengirimThreadHandle:destroy()
+        mengirimThreadHandle = nil
+    end
 end
 
 
@@ -831,10 +906,23 @@ local function serial_init()
 end
 
 
-function sendReport1(reportText)
-    print(_NAME, ": sending report1 with text = ", reportText)
-    messageHandle:send(1, {text = reportText})
+function data_lokasi()
+    if DataAda == 1 then
+        --print(string.format("lat     = %d (%3.5f degrees)", svcmgr.getProp(20,6), svcmgr.getProp(20,6)*6/360000))
+        --print(string.format("lon     = %d (%3.5f degrees)", svcmgr.getProp(20,7), svcmgr.getProp(20,7)*6/360000))
+        --print(string.format("Alti    = %d", svcmgr.getProp(20,8)))
+        --print(string.format("speed   = %d (%3.1f km/h)", svcmgr.getProp(20,9), svcmgr.getProp(20,9)/5.4))
+        --print(string.format("heading = %d (%2d dgrees)", svcmgr.getProp(20,10), svcmgr.getProp(20,10)/10))
+        print(string.format("lat     = %3.5f degrees", lati*6/360000 ))
+        print(string.format("lon     = %3.5f degrees", longi*6/360000 ))
+        print(string.format("Alti    = %d", alti ))
+        print(string.format("speed   = %3.1f km/h", speedi/5.4))
+        print(string.format("heading = %2d dgrees", headi/10))
+    else
+        print("Masih mencari DataFix")
+    end
 end
+
 
 function echoCmd(args)
     if #args &gt; 0 then
@@ -856,6 +944,7 @@ end
 local function shell_init()
     svc.shell.register("echo", echoCmd, "Print arguments")
     svc.shell.register("cek_data", DataCmd, "Cek Data")
+    svc.shell.register("cek_lok", data_lokasi, "data Lokasi")
 end
 
 --
@@ -887,6 +976,13 @@ function entry()
         
     end
     --]]
+    
+    --local kurir = kurir_init()
+    --if kurir then
+    print ("kurir siap kirim")
+    mengirimThreadHandle = sched.spawn("mengirim_thread", kirim_req)
+    sched.delay(1)  
+    --end
     
     merdeka = 0
     --print ("masuk thread worker")
