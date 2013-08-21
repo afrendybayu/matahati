@@ -52,6 +52,21 @@ Format:
           <Value>17;41010;0;0;2;0;0000;</Value>
         </Property>
         <Property xsi:type="StringProperty">
+          <Name>mb31_monita</Name>
+          <Description>Read a modbus register and compares: 
+
+Format: 
+     &lt;address&gt; ; 
+     &lt;base ( 0  or  1 )&gt; ;
+     &lt;read/write = 1 &gt;;
+     &lt;bits( 1 = 16, 2 = 32 )&gt; ; 
+     &lt;direction(0-5)&gt; ; 
+     &lt;threshold&gt; ;
+</Description>
+          <PIN>31</PIN>
+          <Value>17;41011;0;1;2;0;0000;</Value>
+        </Property>
+        <Property xsi:type="StringProperty">
           <Name>mb2_bat</Name>
           <Description>Read a modbus register and compares: 
 
@@ -84,6 +99,30 @@ Format:
         <Property xsi:type="UnsignedIntProperty">
           <Name>mb10_data</Name>
           <PIN>110</PIN>
+        </Property>
+        <Property xsi:type="UnsignedIntProperty">
+          <Name>mb31_sat_lat</Name>
+          <PIN>131</PIN>
+          <Value>123</Value>
+        </Property>
+        <Property xsi:type="UnsignedIntProperty">
+          <Name>mb32_sat_long</Name>
+          <PIN>132</PIN>
+          <Value>234</Value>
+        </Property>
+        <Property xsi:type="UnsignedIntProperty">
+          <Name>mb33_sat_head</Name>
+          <PIN>133</PIN>
+          <Value>345</Value>
+        </Property>
+        <Property xsi:type="UnsignedIntProperty">
+          <Name>mb34_sat_speed</Name>
+          <PIN>134</PIN>
+          <Value>456</Value>
+        </Property>
+        <Property xsi:type="UnsignedIntProperty">
+          <Name>mb51_bat_teg</Name>
+          <PIN>151</PIN>
         </Property>
       </Properties>
       <ReturnMessages>
@@ -416,6 +455,37 @@ local function hexToFloat(str)
     return(x)
 end
 
+local function writeHoldingRegister(pin, idslave, register, base, bit)
+    local nilai = nil
+    
+    nilai = svcmgr.getProp(128, 100+pin)
+    print("PIN: ", pin, ", reg: ", register, ", nilai: ", nilai)
+    
+    local result, error = modbushandle:writereg(idslave, register - base, nilai, COMMAND_TIMEOUT * 1000)
+    local q, event, success, error, count = mb485Q:wait(-1)
+
+    local data = {}
+    --[
+    if success then 
+        print("+++++ Sukses writeHoldingReg")
+        -- Save content of value wrote in property modbusDataXX :
+        --[[
+        for i = 1, math.floor(string.len(Dec2Hex(mod_value))/2+.5) do
+          data[math.floor(string.len(Dec2Hex(mod_value))/2+.5)+ 1- i] =
+          tonumber(string.sub(Dec2Hex(mod_value),-i*2 ,-(i-1)*2-1),16)
+        end        
+        svcmgr.setProp(128, pin_pos + 100 , data )
+        return true
+        --]]
+    else
+        --trace("ERROR: ", error, ". Function writereg(). Address (", mod_address,") ",os.date())
+        print("ERROR: ", error)
+        return false
+    end
+    --]]
+end
+
+
 local function readHoldingRegister(pin, idslave, register, base, bit)
     --print ("idslave: ", idslave, ", reg: ", register - base, ", modbit: ", bit, ", timeout: ", COMMAND_TIMEOUT * 200)
     
@@ -473,7 +543,7 @@ local function parsing_cmd_modbus(no , nama, params)
             -- Take out the first address caracter
             local tf, hasil = readHoldingRegister(no, mb_addr, tonumber(string.sub(mb_reg, 2)), mb_base, mb_bit )  
             if tf then
-                print ("Nilai[", mb_reg, "]: ", hasil, " @", no+100)
+                --print ("Nilai[", mb_reg, "]: ", hasil, " @", no+100)
                 local pro = nil
                 pro = svcmgr.setProp(128, no + 100 , hasil )
                 --pro = svcmgr.getProp(128, (no+100) )
@@ -481,9 +551,11 @@ local function parsing_cmd_modbus(no , nama, params)
             end
         elseif tonumber(mb_rw) == 1 and string.sub(mb_reg, 1,1) == "4" then   
             -- Write in a modbus holding register ---
-            if tonumber(mb_times) &gt; 0 then
+            --print ("alm: ", mb_addr,", reg: ", mb_reg, ", base: ",mb_base, ", rw: ",mb_rw, ", no: ", no)
+            writeHoldingRegister(no, mb_addr, tonumber(string.sub(mb_reg, 2)), mb_base, mb_bit)
+            --if tonumber(mb_times) &gt; 0 then
             --    WritingLoop("HOLDING_REG", nPin, tonumber(string.sub(mod_address, 2))) -- Take out the first address caracter                     
-            end
+            --end
             --
         else
             trace(_NAME, " : modbus function can not be executed with given address ", mb_reg , ".", os.date())
@@ -500,14 +572,15 @@ local function loop_properti()
     
     for i,nPin in pairs(tPins) do 
 --        print (i .. " &gt; " .. nPin)
-        if nPin&lt;= 50 then
+        --if nPin&lt;50 then
+        if nPin==31 then
+        --[
             propField = svcmgr.getPropDef(128,nPin)
             property_value = svcmgr.getProp(128, nPin)
-            print ("i:", i, ", nPin: ", nPin,", nama: ", propField.name, ": ", property_value)
+--            print ("i:", i, ", nPin: ", nPin,", nama: ", propField.name, ": ", property_value)
             parsing_cmd_modbus(nPin, propField.name, property_value)
-    --
+        --]]
         end
-    
     end
     collectgarbage('collect')
 --    print(_NAME, ": loop_properti end")
@@ -515,8 +588,8 @@ end
 
 
 local function timerExpired()
-    print(" ")
-    print(_NAME, ": timer masuk")
+--    print(" ")
+--    print(_NAME, ": timer masuk")
     loop_properti()
 --  print(_NAME, ": ______________________________________")
     timer:arm(PERIODIC_ACTION_DELAY)
@@ -615,17 +688,22 @@ local function bacabaca()
     --local fixVali
     --lati = svcmgr.getProp(20,6)
     --fixVali = svcmgr.getProp(20,2)
-    
+    local pro = nil
+    --
+    pro = svcmgr.getProp(20,2)
+    print("loop: ", merdeka, " FixValid loop: ", pro)
     
     if svcmgr.getProp(20,2) then
         --print(string.format("---- FixValid loop = %d", merdeka))
         --print(string.format("source = %d ", svcmgr.getProp(20,1)) )
         --print(string.format("fixTipe = %d ", svcmgr.getProp(20,3)) )
-        --print(string.format("lat     = %d (%3.5f degrees)", svcmgr.getProp(20,6), svcmgr.getProp(20,6)*6/360000))
-        --print(string.format("lon     = %d (%3.5f degrees)", svcmgr.getProp(20,7), svcmgr.getProp(20,7)*6/360000))
-        --print(string.format("Alti    = %d", svcmgr.getProp(20,8)))
-        --print(string.format("speed   = %d (%3.1f km/h)", svcmgr.getProp(20,9), svcmgr.getProp(20,9)/5.4))
-        --print(string.format("heading = %d (%2d dgrees)", svcmgr.getProp(20,10), svcmgr.getProp(20,10)/10))
+        --[
+        print(string.format("lat     = %d (%3.5f degrees)", svcmgr.getProp(20,6), svcmgr.getProp(20,6)*6/360000))
+        print(string.format("lon     = %d (%3.5f degrees)", svcmgr.getProp(20,7), svcmgr.getProp(20,7)*6/360000))
+        print(string.format("Alti    = %d", svcmgr.getProp(20,8)))
+        print(string.format("speed   = %d (%3.1f km/h)", svcmgr.getProp(20,9), svcmgr.getProp(20,9)/5.4))
+        print(string.format("heading = %d (%2d dgrees)", svcmgr.getProp(20,10), svcmgr.getProp(20,10)/10))
+        --]]
         --print(string.format("fixTime = %d ", svcmgr.getProp(20,11)) )
         --print(string.format("fixAge = %d ", svcmgr.getProp(20,12)) )
         lati   = svcmgr.getProp(20,6)       -- *6/360000
@@ -634,6 +712,12 @@ local function bacabaca()
         speedi = svcmgr.getProp(20,9)       -- /5.4
         headi  = svcmgr.getProp(20,10)      -- /10
         DataAda = 1
+        
+        pro = svcmgr.setProp(128, 131, lati )
+        pro = svcmgr.setProp(128, 132, langi )
+        pro = svcmgr.setProp(128, 133, headi )
+        pro = svcmgr.setProp(128, 134, speedi )
+        
     end
     
     if DataAda == 1 then
@@ -697,6 +781,7 @@ local function workerThread()
             --[
             
             if svc.position.requestFix("3D", 5, 5) then -- get 3D GPS fix immediately
+                --print(" -----&gt; requestFix(3D, 5, 5)")
                 bacabaca()
                 --tracef("** [D] %s - %s: SUCCEEDED requesting a GPS fix from position service. ", os.date(), _NAME)
                 --properties.TerminalTime = os.date("%d").."/"..os.date("%m").."/"..os.date("%Y").." "..
@@ -973,7 +1058,7 @@ local function data_prop(args)
         if nPin&gt;100 and nPin&lt;200 then
             propField = svcmgr.getPropDef(128,nPin)
             pro = svcmgr.getProp(128,nPin)
-            print("  ",propField.name, ": ", pro, " : ", "." )
+            print("  ",propField.name, ": ", pro, " : ", hexToFloat(Dec2Hex(pro)),"." )
 --            print(string.format("[%2d:%3d]: %d --", i, nPin, property_value ))
 --            print ("i:", i, ", nPin: ", nPin,", nama: ", propField.name, ": ", propField.values, "---")
         end
@@ -996,6 +1081,10 @@ function entry()
   
     --print(hexToFloat("C58EBF11"))    -- -4567.89    --print(hexToFloat("42f6e979"))    -- 123.456
     --print(hexToFloat("3f9e0610"))    -- 1.23456
+    
+    merdeka = 0
+    print ("masuk thread worker")
+    modbusThreadHandle = sched.spawn("worker_thread", workerThread)
     
     --[
     local mb = modbus_init()
@@ -1025,9 +1114,7 @@ function entry()
     sched.delay(1)  
     --end
     
-    merdeka = 0
-    --print ("masuk thread worker")
-    modbusThreadHandle = sched.spawn("worker_thread", workerThread)
+    
     --]]
     sched.delay(-1)
     
