@@ -34,7 +34,7 @@ Format:
      &lt;threshold&gt; ;
 </Description>
           <PIN>1</PIN>
-          <Value>17;41001;0;0;4;0;0000;</Value>
+          <Value>17;41001;0;0;14;0;0000;</Value>
         </Property>
         <Property xsi:type="StringProperty">
           <Name>mb31_monita_send</Name>
@@ -524,29 +524,36 @@ local function readHoldingRegister(pin, idslave, register, base, bit)
     local result, error = modbushandle:readholdingregs(idslave, register - base, bit, COMMAND_TIMEOUT*1000)
     local q, event, success, error, count, data, raw = mb485Q:wait(-1)
     local extracted_value = 0
+    local simpan
     
     if success then
-        --print ("sukses !! terima data")
+        --print ("sukses !! terima data, count: ", count, ", data: ", data)
         local buf = sys.buffer.create(data)
         if tonumber(bit) == 1 then
             extracted_value = buf:getInt16()
-            tracef("%s: Reading register #%d = 0x%04X , %s\n", _NAME, register, extracted_value, os.date() )
+            --tracef("%s: Reading register #%d = 0x%04X , %s\n", _NAME, register, extracted_value, os.date() )
             
         else
-            extracted_value = buf:getInt32()
-            tracef("%s: Reading register #%d = 0x%08X , %s\n", _NAME, register, extracted_value , os.date() )
+            for i = 1, (count/2) do
+                --printf("Coil #%d = %d\n", 2 + i, buf:getBits(1))
+                extracted_value = buf:getInt32()
+                --print("data[",i,"]: ", extracted_value)
+                simpan = svcmgr.setProp(128, i + 100 , extracted_value )
+            end
+            --
+            --tracef("%s: Reading register #%d = 0x%08X , %s\n", _NAME, register, extracted_value , os.date() )
         end
         
         --print("ext_value: ", extracted_value)
         -- Save new content read in property modbusDataXX :
-        local eror = svcmgr.setProp(128, pin + 100 , extracted_value )
+        --local eror = svcmgr.setProp(128, pin + 100 , extracted_value )
         if error == nil then
             print("error: ", eror)
          end
         
         return true, extracted_value
     else
-        trace("ERROR: ", error, ". Function readholdingregs(). Address (", register,") ",os.date())
+        --trace("ERROR: ", error, ". Function readholdingregs(). Address (", register,") ",os.date())
         print("GAGAL terima modbus: ".. error)
         return false, nil
     end   
