@@ -22,7 +22,7 @@
           <Value>service started</Value>
         </Property>
         <Property xsi:type="StringProperty">
-          <Name>mb1_monita</Name>
+          <Name>mb1_monita_req</Name>
           <Description>Read a modbus register and compares: 
 
 Format: 
@@ -34,25 +34,10 @@ Format:
      &lt;threshold&gt; ;
 </Description>
           <PIN>1</PIN>
-          <Value>17;41002;0;0;2;0;0000;</Value>
+          <Value>17;41001;0;0;4;0;0000;</Value>
         </Property>
         <Property xsi:type="StringProperty">
-          <Name>mb2_monita</Name>
-          <PIN>2</PIN>
-          <Value>17;41003;0;0;2;0;0000;</Value>
-        </Property>
-        <Property xsi:type="StringProperty">
-          <Name>mb3_monita</Name>
-          <PIN>3</PIN>
-          <Value>17;41004;0;0;2;0;0000;</Value>
-        </Property>
-        <Property xsi:type="StringProperty">
-          <Name>mb10_monita</Name>
-          <PIN>10</PIN>
-          <Value>17;41010;0;0;2;0;0000;</Value>
-        </Property>
-        <Property xsi:type="StringProperty">
-          <Name>mb31_monita</Name>
+          <Name>mb31_monita_send</Name>
           <Description>Read a modbus register and compares: 
 
 Format: 
@@ -63,11 +48,11 @@ Format:
      &lt;direction(0-5)&gt; ; 
      &lt;threshold&gt; ;
 </Description>
-          <PIN>31</PIN>
+          <PIN>11</PIN>
           <Value>17;41011;0;1;2;0;0000;</Value>
         </Property>
         <Property xsi:type="StringProperty">
-          <Name>mb2_bat</Name>
+          <Name>mb2_bat_req</Name>
           <Description>Read a modbus register and compares: 
 
 Format: 
@@ -82,23 +67,63 @@ Format:
           <Value>17;41022;1;2;1;0;70000;</Value>
         </Property>
         <Property xsi:type="UnsignedIntProperty">
-          <Name>mb1_data</Name>
+          <Name>mb1_data_mon</Name>
           <PIN>101</PIN>
           <Value>111</Value>
         </Property>
         <Property xsi:type="UnsignedIntProperty">
-          <Name>mb2_data</Name>
+          <Name>mb2_data_mon</Name>
           <PIN>102</PIN>
           <Value>222</Value>
         </Property>
         <Property xsi:type="UnsignedIntProperty">
-          <Name>mb3_data</Name>
+          <Name>mb3_data_mon</Name>
           <PIN>103</PIN>
           <Value>333</Value>
         </Property>
         <Property xsi:type="UnsignedIntProperty">
-          <Name>mb10_data</Name>
+          <Name>mb4_data_mon</Name>
+          <PIN>104</PIN>
+        </Property>
+        <Property xsi:type="UnsignedIntProperty">
+          <Name>mb5_data_mon</Name>
+          <PIN>105</PIN>
+        </Property>
+        <Property xsi:type="UnsignedIntProperty">
+          <Name>mb6_data_mon</Name>
+          <PIN>106</PIN>
+        </Property>
+        <Property xsi:type="UnsignedIntProperty">
+          <Name>mb7_data_mon</Name>
+          <PIN>107</PIN>
+        </Property>
+        <Property xsi:type="UnsignedIntProperty">
+          <Name>mb8_data_mon</Name>
+          <PIN>108</PIN>
+        </Property>
+        <Property xsi:type="UnsignedIntProperty">
+          <Name>mb9_data_mon</Name>
+          <PIN>109</PIN>
+        </Property>
+        <Property xsi:type="UnsignedIntProperty">
+          <Name>mb10_data_mon</Name>
           <PIN>110</PIN>
+        </Property>
+        <Property xsi:type="UnsignedIntProperty">
+          <Name>mb11_data_mon</Name>
+          <PIN>111</PIN>
+        </Property>
+        <Property xsi:type="UnsignedIntProperty">
+          <Name>mb12_data_mon</Name>
+          <PIN>112</PIN>
+        </Property>
+        <Property xsi:type="UnsignedIntProperty">
+          <Name>mb13_data_mon</Name>
+          <PIN>113</PIN>
+        </Property>
+        <Property xsi:type="UnsignedIntProperty">
+          <Name>mb14_data_mon</Name>
+          <PIN>114</PIN>
         </Property>
         <Property xsi:type="UnsignedIntProperty">
           <Name>mb31_sat_lat</Name>
@@ -309,11 +334,14 @@ while extract_field(conf_params) ~= false do
         elseif val_counter == 5 then
             if tonumber(mb_rw) == 0 then
                 mb_bit, conf_params = extract_field(conf_params)
-                if tonumber(mb_bit) ~= 1 and tonumber(mb_bit) ~= 2 then
+                --[
+                --if tonumber(mb_bit) ~= 1 and tonumber(mb_bit) ~= 2 then
+                if tonumber(mb_bit) &gt; 480 then
                     trace("ERROR: wrong value for 'bits' (must be 1 or 2)", os.date())
                     print("ERROR 5A")
-                return false
-            end
+                return false                
+                end
+                --]]
             else
                 mb_value, conf_params = extract_field(conf_params)
                 if tonumber(mb_value) == nil or
@@ -378,7 +406,8 @@ while extract_field(conf_params) ~= false do
     end
  
     if tonumber(mb_rw) == 0 then
-        if tonumber(mb_bit) ~= 1 and tonumber(mb_bit) ~= 2 then
+        --if tonumber(mb_bit) ~= 1 and tonumber(mb_bit) ~= 2 then
+        if tonumber(mb_bit) &gt; 480 then
             trace("ERROR: missing parameter or delimitation for 'bits' ", os.date())
             return false
         end
@@ -458,7 +487,9 @@ end
 local function writeHoldingRegister(pin, idslave, register, base, bit)
     local nilai = nil
     
-    nilai = svcmgr.getProp(128, 100+pin)
+    --nilai = svcmgr.getProp(128, 100+pin)
+    nilai = 1151
+    --nilai = 1151256300
     print("PIN: ", pin, ", reg: ", register, ", nilai: ", nilai)
     
     local result, error = modbushandle:writereg(idslave, register - base, nilai, COMMAND_TIMEOUT * 1000)
@@ -487,7 +518,7 @@ end
 
 
 local function readHoldingRegister(pin, idslave, register, base, bit)
-    --print ("idslave: ", idslave, ", reg: ", register - base, ", modbit: ", bit, ", timeout: ", COMMAND_TIMEOUT * 200)
+    print ("idslave: ", idslave, ", reg: ", register - base, ", modbit: ", bit, ", timeout: ", COMMAND_TIMEOUT * 200)
     
     
     local result, error = modbushandle:readholdingregs(idslave, register - base, bit, COMMAND_TIMEOUT*1000)
@@ -535,13 +566,14 @@ end
 local function parsing_cmd_modbus(no , nama, params)
     --print("___ function parsing: ", nama, ": ", params)
     local tf, mb_addr, mb_reg, mb_base, mb_rw, mb_bit, mb_dir, mb_threshold, mb_value, mb_times = fillParameters(nama, params)
-    --print ("alm: ", mb_addr,", reg: ", mb_reg, ", base: ",mb_base, ", rw: ",mb_rw, ", no: ", no)
+    print ("alm: ", mb_addr,", reg: ", mb_reg, ", base: ",mb_base, ", rw: ",mb_rw, ", no: ", no, ", mb_bit: ", mb_bit)
     
     if tf then
         if tonumber(mb_rw) == 0 and string.sub(mb_reg, 1,1) == "4" then  -- rx:0, reg:4xxxx
             --print(" Read holding register(s):", no, ", addr: ", mb_addr, ", reg: ", tonumber(string.sub(mb_reg, 2))) --
             -- Take out the first address caracter
-            local tf, hasil = readHoldingRegister(no, mb_addr, tonumber(string.sub(mb_reg, 2)), mb_base, mb_bit )  
+            local nd = mb_bit*2
+            local tf, hasil = readHoldingRegister(no, mb_addr, tonumber(string.sub(mb_reg, 2)), mb_base, nd )  
             if tf then
                 --print ("Nilai[", mb_reg, "]: ", hasil, " @", no+100)
                 local pro = nil
@@ -573,7 +605,8 @@ local function loop_properti()
     for i,nPin in pairs(tPins) do 
 --        print (i .. " &gt; " .. nPin)
         --if nPin&lt;50 then
-        if nPin==31 then
+        --if nPin==31 then
+        if nPin&lt;=1 then
         --[
             propField = svcmgr.getPropDef(128,nPin)
             property_value = svcmgr.getProp(128, nPin)
@@ -698,25 +731,29 @@ local function bacabaca()
         --print(string.format("source = %d ", svcmgr.getProp(20,1)) )
         --print(string.format("fixTipe = %d ", svcmgr.getProp(20,3)) )
         --[
-        print(string.format("lat     = %d (%3.5f degrees)", svcmgr.getProp(20,6), svcmgr.getProp(20,6)*6/360000))
-        print(string.format("lon     = %d (%3.5f degrees)", svcmgr.getProp(20,7), svcmgr.getProp(20,7)*6/360000))
-        print(string.format("Alti    = %d", svcmgr.getProp(20,8)))
-        print(string.format("speed   = %d (%3.1f km/h)", svcmgr.getProp(20,9), svcmgr.getProp(20,9)/5.4))
-        print(string.format("heading = %d (%2d dgrees)", svcmgr.getProp(20,10), svcmgr.getProp(20,10)/10))
-        --]]
-        --print(string.format("fixTime = %d ", svcmgr.getProp(20,11)) )
-        --print(string.format("fixAge = %d ", svcmgr.getProp(20,12)) )
         lati   = svcmgr.getProp(20,6)       -- *6/360000
         longi  = svcmgr.getProp(20,7)       -- *6/360000
         alti   = svcmgr.getProp(20,8)
         speedi = svcmgr.getProp(20,9)       -- /5.4
         headi  = svcmgr.getProp(20,10)      -- /10
+        print(string.format("lat     = %d (%3.5f degrees)", lati, lati*6/360000))
+        print(string.format("lon     = %d (%3.5f degrees)", longi, longi*6/360000))
+        print(string.format("Alti    = %d", alti))
+        print(string.format("speed   = %d (%3.1f km/h)", speedi, speedi/5.4))
+        print(string.format("heading = %d (%2d dgrees)", headi, headi/10))
+        --]]
+        --print(string.format("fixTime = %d ", svcmgr.getProp(20,11)) )
+        --print(string.format("fixAge = %d ", svcmgr.getProp(20,12)) )
+        
         DataAda = 1
         
-        pro = svcmgr.setProp(128, 131, lati )
-        pro = svcmgr.setProp(128, 132, langi )
-        pro = svcmgr.setProp(128, 133, headi )
-        pro = svcmgr.setProp(128, 134, speedi )
+        svcmgr.setProp(128, 131, lati )
+        --svcmgr.setProp(128, 132, langi )
+        --pro = svcmgr.setProp(128, 133, headi )
+        --pro = svcmgr.setProp(128, 134, speedi )
+        
+        print(string.format("lat     = %d ", svcmgr.getProp(128, 131)))
+        --print(string.format("heading = %d ", svcmgr.getProp(128, 133)))
         
     end
     
