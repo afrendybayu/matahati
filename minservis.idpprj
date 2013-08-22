@@ -22,10 +22,10 @@
           <Value>service started</Value>
         </Property>
         <Property xsi:type="StringProperty">
-          <Name>mb1_monita_req</Name>
+          <Name>mb1_monita_data_req</Name>
           <Description>Read a modbus register and compares: 
-
 Format: 
+     &lt;idslave&gt;
      &lt;address&gt; ; 
      &lt;base ( 0  or  1 )&gt; ;
      &lt;read/write = 1 &gt;;
@@ -34,10 +34,25 @@ Format:
      &lt;threshold&gt; ;
 </Description>
           <PIN>1</PIN>
-          <Value>17;41001;0;0;14;0;0000;</Value>
+          <Value>17;41001;0;0;14;101;0000;</Value>
         </Property>
         <Property xsi:type="StringProperty">
-          <Name>mb31_monita_send</Name>
+          <Name>mb2_monita_sat_send</Name>
+          <Description>Write a modbus register and compares: 
+
+Format: 
+     &lt;idslave&gt;
+     &lt;address&gt; ; 
+     &lt;base ( 0  or  1 )&gt; ;
+     &lt;read/write = 1 &gt;;
+     &lt;bits = jml data&gt; ; 
+     &lt;pin data&gt; ;
+</Description>
+          <PIN>2</PIN>
+          <Value>17;41021;0;1;4;131;000;</Value>
+        </Property>
+        <Property xsi:type="StringProperty">
+          <Name>mb3_bat_req</Name>
           <Description>Read a modbus register and compares: 
 
 Format: 
@@ -48,23 +63,21 @@ Format:
      &lt;direction(0-5)&gt; ; 
      &lt;threshold&gt; ;
 </Description>
-          <PIN>11</PIN>
-          <Value>17;41011;0;1;2;0;0000;</Value>
+          <PIN>3</PIN>
+          <Value>10;41022;0;0;1;151;70000;</Value>
         </Property>
         <Property xsi:type="StringProperty">
-          <Name>mb2_bat_req</Name>
-          <Description>Read a modbus register and compares: 
-
+          <Name>mb4_monita_bat_send</Name>
+          <Description>Write a modbus register and compares: 
 Format: 
+     &lt;idslave&gt;
      &lt;address&gt; ; 
      &lt;base ( 0  or  1 )&gt; ;
      &lt;read/write = 1 &gt;;
-     &lt;bits( 1 = 16, 2 = 32 )&gt; ; 
-     &lt;direction(0-5)&gt; ; 
-     &lt;threshold&gt; ;
-</Description>
-          <PIN>51</PIN>
-          <Value>17;41022;1;2;1;0;70000;</Value>
+     &lt;bits = jml data&gt; ; 
+     &lt;pin data&gt; ;</Description>
+          <PIN>4</PIN>
+          <Value>17;41029;0;1;1;151;000;</Value>
         </Property>
         <Property xsi:type="UnsignedIntProperty">
           <Name>mb1_data_mon</Name>
@@ -128,7 +141,7 @@ Format:
         <Property xsi:type="UnsignedIntProperty">
           <Name>mb31_sat_lat</Name>
           <PIN>131</PIN>
-          <Value>123</Value>
+          <Value>1143384736</Value>
         </Property>
         <Property xsi:type="UnsignedIntProperty">
           <Name>mb32_sat_long</Name>
@@ -143,11 +156,12 @@ Format:
         <Property xsi:type="UnsignedIntProperty">
           <Name>mb34_sat_speed</Name>
           <PIN>134</PIN>
-          <Value>456</Value>
+          <Value>1121859797</Value>
         </Property>
         <Property xsi:type="UnsignedIntProperty">
           <Name>mb51_bat_teg</Name>
           <PIN>151</PIN>
+          <Value>1107645694</Value>
         </Property>
       </Properties>
       <ReturnMessages>
@@ -296,140 +310,168 @@ local mb_threshold = nil
 local mb_value = nil
 local mb_times = nil
 
-
- -- don't use "while extract_field(conf_params) == true do", doesn't mean the same
- -- due to configuration of function "extract_field()"
-while extract_field(conf_params) ~= false do 
-    if val_counter == 1 then
-        mb_addr, conf_params = extract_field(conf_params)
-        if tonumber(mb_addr) == 0 then
-            trace("ERROR: invalid value for 'address' ", os.date())
-            print("ERROR 1")
-            return false
-        end
+--    print("Data: ", conf_params)
+    
+     -- don't use "while extract_field(conf_params) == true do", doesn't mean the same
+     -- due to configuration of function "extract_field()"
+    while extract_field(conf_params) ~= false do 
+        if val_counter == 1 then
+            mb_addr, conf_params = extract_field(conf_params)
+            --print ("data1: ", tonumber(mb_addr))
+            if tonumber(mb_addr) == 0 then
+                --trace("ERROR: invalid value for 'address' ", os.date())
+                print("ERROR 1")
+                return false
+            end
         elseif val_counter == 2 then
             --print("param: ", conf_params)
             mb_reg, conf_params = extract_field(conf_params)
+            --print ("data2: ", tonumber(mb_reg)) 
             if tonumber(mb_reg) == nil then
-                trace("ERROR: wrong value for 'base' (must be 0 or 1) ", os.date())
+                --trace("ERROR: wrong value for 'base' (must be 0 or 1) ", os.date())
                 print("ERROR 2")
-            return false
-        end
+                return false
+            end
         elseif val_counter == 3 then
-            --print("param: ", conf_params)
-            
+            --print("param: ", conf_params)            
             mb_base, conf_params = extract_field(conf_params)
+            --print ("data3: ", tonumber(mb_base)) 
             if tonumber(mb_base) ~= 0 and tonumber(mb_base) ~= 1 then
-                trace("ERROR: wrong value for 'base' (must be 0 or 1) ", os.date())
+                --trace("ERROR: wrong value for 'base' (must be 0 or 1) ", os.date())
                 print("ERROR 3")
-            return false
-        end
+                return false
+            end
         elseif val_counter == 4 then
             mb_rw, conf_params = extract_field(conf_params)
+            --print ("data4: ", tonumber(mb_rw)) 
             if tonumber(mb_rw) ~= 0 and tonumber(mb_rw) ~= 1 then
-                trace("ERROR: wrong value for 'read/write' (must be 0 or 1) ", os.date())
+                --trace("ERROR: wrong value for 'read/write' (must be 0 or 1) ", os.date())
                 print("ERROR 4")
-            return false
-        end
+                return false
+            end
         elseif val_counter == 5 then
-            if tonumber(mb_rw) == 0 then
-                mb_bit, conf_params = extract_field(conf_params)
-                --[
-                --if tonumber(mb_bit) ~= 1 and tonumber(mb_bit) ~= 2 then
-                if tonumber(mb_bit) &gt; 480 then
-                    trace("ERROR: wrong value for 'bits' (must be 1 or 2)", os.date())
-                    print("ERROR 5A")
+            mb_bit, conf_params = extract_field(conf_params)
+            --print ("data5: ", tonumber(mb_bit)) 
+            --[
+            --if tonumber(mb_bit) ~= 1 and tonumber(mb_bit) ~= 2 then
+            if tonumber(mb_bit) &gt; 480 then
+                trace("ERROR: wrong value for 'bits' (must be 1 or 2)", os.date())
+                print("ERROR 5A")
                 return false                
+            end
+                --[[
+                if tonumber(mb_rw) == 0 then
+                    
+                    
+                else
+                    mb_value, conf_params = extract_field(conf_params)
+                    if tonumber(mb_value) == nil or
+                    not (tonumber(mb_value) &gt;= 0 and tonumber(mb_value) &lt;= 65535) then
+                        trace("ERROR: invalid value for 'value' (must be between 0 and 65535) ", os.date())
+                        print("ERROR 5B")
+                        return false
+                    end
                 end
                 --]]
-            else
-                mb_value, conf_params = extract_field(conf_params)
-                if tonumber(mb_value) == nil or
-                not (tonumber(mb_value) &gt;= 0 and tonumber(mb_value) &lt;= 65535) then
-                    trace("ERROR: invalid value for 'value' (must be between 0 and 65535) ", os.date())
-                    print("ERROR 5B")
-                    return false
-                end
-            end
         elseif val_counter == 6 then
-            if tonumber(mb_rw) == 0 then
-                mb_dir, conf_params = extract_field(conf_params)
-            if tonumber(mb_dir) == nil or
-            not (tonumber(mb_dir) &gt;= 0 and tonumber(mb_dir) &lt;= 5) then
-                trace("ERROR: invalid value for 'direction' (must be between 1 and 5) ", os.date())
-                print("ERROR 6A")
+            mb_dir, conf_params = extract_field(conf_params)
+            --print ("data6: ", tonumber(mb_dir)) 
+            if tonumber(mb_dir) &lt; 0 then
+                --trace("ERROR: wrong value for 'bits' (must be 1 or 2)", os.date())
+                print("ERROR 6: ", tonumber(mb_dir))
                 return false
             end
-        else
-            mb_times, conf_params = extract_field(conf_params)
-            if tonumber(mb_times) == nil then
-                trace("ERROR: invalid value for 'times' ", os.date())
-                print("ERROR 6B")
-                return false
-            end
-            break
-        end
+                --[[
+                if tonumber(mb_rw) == 0 then
+                    mb_dir, conf_params = extract_field(conf_params)
+                    if tonumber(mb_dir) == nil or
+                    not (tonumber(mb_dir) &gt;= 0 and tonumber(mb_dir) &lt;= 5) then
+                        trace("ERROR: invalid value for 'direction' (must be between 1 and 5) ", os.date())
+                        print("ERROR 6A")
+                        return false
+                    end
+                else
+                    mb_times, conf_params = extract_field(conf_params)
+                    if tonumber(mb_times) == nil then
+                        trace("ERROR: invalid value for 'times' ", os.date())
+                        print("ERROR 6B")
+                        return false
+                    end
+                    break
+                end
+                --]]
         elseif val_counter == 7 then
-            if tonumber(mb_rw) == 0 then
+            --if tonumber(mb_rw) == 0 then
                 mb_threshold, conf_params = extract_field(conf_params)
+                --print ("data7: ", tonumber(mb_threshold)) 
                 if tonumber(mb_threshold) == nil then
-                    trace("ERROR: invalid value for 'threshold' ", os.date())
+                    --trace("ERROR: invalid value for 'threshold' ", os.date())
                     print("ERROR 7")
                     return false
                 end
                 break
-            end
+            --end
         end
-    val_counter = val_counter + 1
+        val_counter = val_counter + 1
     end
  
     if tonumber(mb_reg) == nil then
-        trace("ERROR: missing parameter or delimitation for 'address' ", os.date())
+        --trace("ERROR: missing parameter or delimitation for 'address' ", os.date())
         print ("ERROR register A")
         return false
     elseif string.len(mb_reg) ~= 5 then
-        trace("ERROR: wrong value for 'address', expecting 5 digits ",mb_reg, " ", os.date())
+        --trace("ERROR: wrong value for 'address', expecting 5 digits ",mb_reg, " ", os.date())
         print ("ERROR register B")
         return false
     end
  
     if tonumber(mb_base) ~= 0 and tonumber(mb_base) ~= 1 then
-        trace("ERROR: missing parameter or delimitation for 'base' ", os.date())
+        --trace("ERROR: missing parameter or delimitation for 'base' ", os.date())
         print ("ERROR base")
         return false
     end
  
     if tonumber(mb_rw) ~= 0 and tonumber(mb_rw) ~= 1 then
-        trace("ERROR: missing parameter or delimitation for 'read/write' ", os.date())
+        --trace("ERROR: missing parameter or delimitation for 'read/write' ", os.date())
         print ("ERROR rw")
         return false
     end
- 
+    
     if tonumber(mb_rw) == 0 then
         --if tonumber(mb_bit) ~= 1 and tonumber(mb_bit) ~= 2 then
-        if tonumber(mb_bit) &gt; 480 then
-            trace("ERROR: missing parameter or delimitation for 'bits' ", os.date())
-            return false
-        end
-        if tonumber(mb_dir) == nil or
-        not (tonumber(mb_dir) &gt;= 0 and tonumber(mb_dir) &lt;= 5) then
-            trace("ERROR: missing parameter or delimitation for 'direction' ", os.date())
-            return false
-        end
         if tonumber(mb_threshold) == nil then
-            trace("ERROR: missing parameter or delimitation for 'threshold' ", os.date())
+            --trace("ERROR: missing parameter or delimitation for 'threshold' ", os.date())
+            print("ERROR: mb_threshold NIL")
             return false
         end
     else
+        --[
+        if tonumber(mb_dir) == nil then
+            --trace("ERROR: missing parameter or delimitation for 'direction' ", os.date())
+            print("ERROR: mb_dir NIL")
+            return false
+        end
+        --]]
+        
+        --[[
         if tonumber(mb_value) == nil then
-            trace("ERROR: missing parameter or delimitation for 'value' ", os.date())
+            --trace("ERROR: missing parameter or delimitation for 'value' ", os.date())
             return false
         end
         if tonumber(mb_times) == nil then
-            trace("ERROR: missing parameter or delimitation for 'times' ", os.date())
+            --trace("ERROR: missing parameter or delimitation for 'times' ", os.date())
             return false
         end
+        --]]
     end
+    
+    if tonumber(mb_bit) &gt; 480 then
+        --trace("ERROR: missing parameter or delimitation for 'bits' ", os.date())
+        print("ERROR: mb_bit&gt;480")
+        return false
+    end
+    
+    --print("Adr:",mb_addr,", reg:",mb_reg,", base:",mb_base,", bit: ",mb_bit)
     
     return true, mb_addr, mb_reg, mb_base, mb_rw, mb_bit, mb_dir, mb_threshold, mb_value, mb_times
 
@@ -484,41 +526,36 @@ local function hexToFloat(str)
     return(x)
 end
 
-local function writeHoldingRegister(pin, idslave, register, base, bit)
-    local nilai = nil
+local function writeHoldingRegister(pin, idslave, register, base, jml, tPin)
     
-    --nilai = svcmgr.getProp(128, 100+pin)
-    nilai = 1151
-    --nilai = 1151256300
-    print("PIN: ", pin, ", reg: ", register, ", nilai: ", nilai)
+    local buf = sys.buffer.create(4*jml)
+    print("PIN: ", pin, ", reg: ", register, ", jml: ", jml,", tPin: ", tPin)
     
-    local result, error = modbushandle:writereg(idslave, register - base, nilai, COMMAND_TIMEOUT * 1000)
+    for i=1, jml do
+        buf:addInt32(svcmgr.getProp(128, (tPin+i-1)), false, false)
+        print("data: ", svcmgr.getProp(128, (tPin+i-1)))
+    end
+    
+    local bytes, numBits = buf:getString()
+    local result, error = modbushandle:writeregs(idslave, register - base, bytes, COMMAND_TIMEOUT * 1000)
     local q, event, success, error, count = mb485Q:wait(-1)
 
-    local data = {}
+    --local data = {}
     --[
     if success then 
         print("+++++ Sukses writeHoldingReg")
-        -- Save content of value wrote in property modbusDataXX :
-        --[[
-        for i = 1, math.floor(string.len(Dec2Hex(mod_value))/2+.5) do
-          data[math.floor(string.len(Dec2Hex(mod_value))/2+.5)+ 1- i] =
-          tonumber(string.sub(Dec2Hex(mod_value),-i*2 ,-(i-1)*2-1),16)
-        end        
-        svcmgr.setProp(128, pin_pos + 100 , data )
         return true
-        --]]
     else
         --trace("ERROR: ", error, ". Function writereg(). Address (", mod_address,") ",os.date())
-        print("ERROR: ", error)
+        print ("ERROR: ",error,", id: ", idslave, ", reg: ", register - base, ", tpin: ",tpin)
         return false
     end
     --]]
 end
 
 
-local function readHoldingRegister(pin, idslave, register, base, bit)
-    print ("idslave: ", idslave, ", reg: ", register - base, ", modbit: ", bit, ", timeout: ", COMMAND_TIMEOUT * 200)
+local function readHoldingRegister(pin, idslave, register, base, bit, tpin)
+    print ("idslave: ", idslave, ", reg: ", register - base, ", modbit: ",bit,", pin: ",pin,", tpin: ",tpin)
     
     
     local result, error = modbushandle:readholdingregs(idslave, register - base, bit, COMMAND_TIMEOUT*1000)
@@ -527,18 +564,19 @@ local function readHoldingRegister(pin, idslave, register, base, bit)
     local simpan
     
     if success then
-        --print ("sukses !! terima data, count: ", count, ", data: ", data)
+        print ("sukses !! terima data, count: ", count)
         local buf = sys.buffer.create(data)
         if tonumber(bit) == 1 then
             extracted_value = buf:getInt16()
             --tracef("%s: Reading register #%d = 0x%04X , %s\n", _NAME, register, extracted_value, os.date() )
             
         else
-            for i = 1, (count/2) do
+            local j = (count/2)
+            for i = 1, j  do
                 --printf("Coil #%d = %d\n", 2 + i, buf:getBits(1))
                 extracted_value = buf:getInt32()
-                --print("data[",i,"]: ", extracted_value)
-                simpan = svcmgr.setProp(128, i + 100 , extracted_value )
+                print("data[",i+tpin-1,"]: ", extracted_value)
+                simpan = svcmgr.setProp(128, (i+tpin-1) , extracted_value )
             end
             --
             --tracef("%s: Reading register #%d = 0x%08X , %s\n", _NAME, register, extracted_value , os.date() )
@@ -548,7 +586,7 @@ local function readHoldingRegister(pin, idslave, register, base, bit)
         -- Save new content read in property modbusDataXX :
         --local eror = svcmgr.setProp(128, pin + 100 , extracted_value )
         if error == nil then
-            print("error: ", eror)
+            print ("ERROR: ",error,", id: ", idslave, ", reg: ", register - base, "pin: ", pin)
          end
         
         return true, extracted_value
@@ -572,15 +610,16 @@ end
 
 local function parsing_cmd_modbus(no , nama, params)
     --print("___ function parsing: ", nama, ": ", params)
-    local tf, mb_addr, mb_reg, mb_base, mb_rw, mb_bit, mb_dir, mb_threshold, mb_value, mb_times = fillParameters(nama, params)
-    print ("alm: ", mb_addr,", reg: ", mb_reg, ", base: ",mb_base, ", rw: ",mb_rw, ", no: ", no, ", mb_bit: ", mb_bit)
+    local tf, mb_addr, mb_reg, mb_base, mb_rw, mb_bit, mb_pin, mb_threshold, mb_value, mb_times = fillParameters(nama, params)
+--    print ("alm: ", mb_addr,", reg: ", mb_reg, ", base: ",mb_base, ", rw: ",mb_rw, ", no: ", no, ", mb_bit: ", mb_bit, ", pin: ", mb_pin)
     
+    --[
     if tf then
         if tonumber(mb_rw) == 0 and string.sub(mb_reg, 1,1) == "4" then  -- rx:0, reg:4xxxx
             --print(" Read holding register(s):", no, ", addr: ", mb_addr, ", reg: ", tonumber(string.sub(mb_reg, 2))) --
             -- Take out the first address caracter
             local nd = mb_bit*2
-            local tf, hasil = readHoldingRegister(no, mb_addr, tonumber(string.sub(mb_reg, 2)), mb_base, nd )  
+            local tf, hasil = readHoldingRegister(no, mb_addr, tonumber(string.sub(mb_reg, 2)), mb_base, nd, mb_pin )  
             if tf then
                 --print ("Nilai[", mb_reg, "]: ", hasil, " @", no+100)
                 local pro = nil
@@ -591,13 +630,13 @@ local function parsing_cmd_modbus(no , nama, params)
         elseif tonumber(mb_rw) == 1 and string.sub(mb_reg, 1,1) == "4" then   
             -- Write in a modbus holding register ---
             --print ("alm: ", mb_addr,", reg: ", mb_reg, ", base: ",mb_base, ", rw: ",mb_rw, ", no: ", no)
-            writeHoldingRegister(no, mb_addr, tonumber(string.sub(mb_reg, 2)), mb_base, mb_bit)
+            writeHoldingRegister(no, mb_addr, tonumber(string.sub(mb_reg, 2)), mb_base, mb_bit, mb_pin)
             --if tonumber(mb_times) &gt; 0 then
             --    WritingLoop("HOLDING_REG", nPin, tonumber(string.sub(mod_address, 2))) -- Take out the first address caracter                     
             --end
             --
         else
-            trace(_NAME, " : modbus function can not be executed with given address ", mb_reg , ".", os.date())
+            --trace(_NAME, " : modbus function can not be executed with given address ", mb_reg , ".", os.date())
         end
     else
             
@@ -610,15 +649,16 @@ local function loop_properti()
     -- i=index, nPin=nilai PIN
     
     for i,nPin in pairs(tPins) do 
---        print (i .. " &gt; " .. nPin)
-        --if nPin&lt;50 then
-        --if nPin==31 then
-        if nPin&lt;=1 then
+        if nPin&lt;=10 then
+        --if nPin&lt;=2 then
+        --if nPin&lt;=1 then
         --[
+            print (i .. " &gt; " .. nPin)
             propField = svcmgr.getPropDef(128,nPin)
             property_value = svcmgr.getProp(128, nPin)
 --            print ("i:", i, ", nPin: ", nPin,", nama: ", propField.name, ": ", property_value)
             parsing_cmd_modbus(nPin, propField.name, property_value)
+            timer:arm(10)
         --]]
         end
     end
@@ -754,7 +794,8 @@ local function bacabaca()
         
         DataAda = 1
         
-        svcmgr.setProp(128, 131, lati )
+        pro = svcmgr.setProp(128, 131, 5791 )
+        
         --svcmgr.setProp(128, 132, langi )
         --pro = svcmgr.setProp(128, 133, headi )
         --pro = svcmgr.setProp(128, 134, speedi )
