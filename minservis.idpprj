@@ -79,89 +79,81 @@ Format:
           <PIN>4</PIN>
           <Value>17;41029;0;1;1;151;000;</Value>
         </Property>
-        <Property xsi:type="UnsignedIntProperty">
+        <Property xsi:type="SignedIntProperty">
           <Name>mb1_data_mon</Name>
           <PIN>101</PIN>
-          <Value>111</Value>
         </Property>
-        <Property xsi:type="UnsignedIntProperty">
+        <Property xsi:type="SignedIntProperty">
           <Name>mb2_data_mon</Name>
           <PIN>102</PIN>
-          <Value>222</Value>
         </Property>
-        <Property xsi:type="UnsignedIntProperty">
+        <Property xsi:type="SignedIntProperty">
           <Name>mb3_data_mon</Name>
           <PIN>103</PIN>
-          <Value>333</Value>
         </Property>
-        <Property xsi:type="UnsignedIntProperty">
+        <Property xsi:type="SignedIntProperty">
           <Name>mb4_data_mon</Name>
           <PIN>104</PIN>
         </Property>
-        <Property xsi:type="UnsignedIntProperty">
+        <Property xsi:type="SignedIntProperty">
           <Name>mb5_data_mon</Name>
           <PIN>105</PIN>
         </Property>
-        <Property xsi:type="UnsignedIntProperty">
+        <Property xsi:type="SignedIntProperty">
           <Name>mb6_data_mon</Name>
           <PIN>106</PIN>
         </Property>
-        <Property xsi:type="UnsignedIntProperty">
+        <Property xsi:type="SignedIntProperty">
           <Name>mb7_data_mon</Name>
           <PIN>107</PIN>
         </Property>
-        <Property xsi:type="UnsignedIntProperty">
+        <Property xsi:type="SignedIntProperty">
           <Name>mb8_data_mon</Name>
           <PIN>108</PIN>
         </Property>
-        <Property xsi:type="UnsignedIntProperty">
+        <Property xsi:type="SignedIntProperty">
           <Name>mb9_data_mon</Name>
           <PIN>109</PIN>
         </Property>
-        <Property xsi:type="UnsignedIntProperty">
+        <Property xsi:type="SignedIntProperty">
           <Name>mb10_data_mon</Name>
           <PIN>110</PIN>
         </Property>
-        <Property xsi:type="UnsignedIntProperty">
+        <Property xsi:type="SignedIntProperty">
           <Name>mb11_data_mon</Name>
           <PIN>111</PIN>
         </Property>
-        <Property xsi:type="UnsignedIntProperty">
+        <Property xsi:type="SignedIntProperty">
           <Name>mb12_data_mon</Name>
           <PIN>112</PIN>
         </Property>
-        <Property xsi:type="UnsignedIntProperty">
+        <Property xsi:type="SignedIntProperty">
           <Name>mb13_data_mon</Name>
           <PIN>113</PIN>
         </Property>
-        <Property xsi:type="UnsignedIntProperty">
+        <Property xsi:type="SignedIntProperty">
           <Name>mb14_data_mon</Name>
           <PIN>114</PIN>
         </Property>
-        <Property xsi:type="UnsignedIntProperty">
+        <Property xsi:type="SignedIntProperty">
           <Name>mb31_sat_lat</Name>
           <PIN>131</PIN>
-          <Value>1143384736</Value>
         </Property>
-        <Property xsi:type="UnsignedIntProperty">
+        <Property xsi:type="SignedIntProperty">
           <Name>mb32_sat_long</Name>
           <PIN>132</PIN>
-          <Value>234</Value>
         </Property>
-        <Property xsi:type="UnsignedIntProperty">
+        <Property xsi:type="SignedIntProperty">
           <Name>mb33_sat_head</Name>
           <PIN>133</PIN>
-          <Value>345</Value>
         </Property>
-        <Property xsi:type="UnsignedIntProperty">
+        <Property xsi:type="SignedIntProperty">
           <Name>mb34_sat_speed</Name>
           <PIN>134</PIN>
-          <Value>1121859797</Value>
         </Property>
-        <Property xsi:type="UnsignedIntProperty">
+        <Property xsi:type="SignedIntProperty">
           <Name>mb51_bat_teg</Name>
           <PIN>151</PIN>
-          <Value>1107645694</Value>
         </Property>
       </Properties>
       <ReturnMessages>
@@ -477,6 +469,24 @@ local mb_times = nil
 
 end
 
+local function simpan_float2uint32(float, sin , pin)
+    local bufd = nil
+    local p = nil
+    local fl = nil
+    local ui = nil
+    bufd = sys.buffer.create(4)
+    p = bufd:addFloat(float, false, false)
+    ui = bufd:getInt32()
+    svcmgr.setProp(sin, pin, ui)
+    
+    --q = svcmgr.getProp(sin, pin)
+    --print("getq: ", q )
+    --a = hexToFloat(Dec2Hex(q))
+    --print("float: ",a)
+    bufd:clear()
+    
+end
+
 --[
 function PrintSomething(_index)
     print( _index,"__ __", control_table[_index] ) -- index=PIN
@@ -491,7 +501,7 @@ local function baca_properti()
   
     -- Fill control_table with initial values
     table.foreach(tPins, function(k,v) table.insert(control_table,v,0) end )  --tekan kene lancar
-    table.foreach(control_table, PrintSomething)
+    --table.foreach(control_table, PrintSomething)
 end
 
 -- http://twolivesleft.com/Codea/Talk/discussion/2531/hex-or-binary-to-float/p1 --
@@ -529,11 +539,11 @@ end
 local function writeHoldingRegister(pin, idslave, register, base, jml, tPin)
     
     local buf = sys.buffer.create(4*jml)
-    print("PIN: ", pin, ", reg: ", register, ", jml: ", jml,", tPin: ", tPin)
+--    print("PIN: ", pin, ", reg: ", register, ", jml: ", jml,", tPin: ", tPin)
     
     for i=1, jml do
         buf:addInt32(svcmgr.getProp(128, (tPin+i-1)), false, false)
-        print("data: ", svcmgr.getProp(128, (tPin+i-1)))
+--        print("data: ", svcmgr.getProp(128, (tPin+i-1)))
     end
     
     local bytes, numBits = buf:getString()
@@ -543,7 +553,7 @@ local function writeHoldingRegister(pin, idslave, register, base, jml, tPin)
     --local data = {}
     --[
     if success then 
-        print("+++++ Sukses writeHoldingReg")
+--        print("+++++ Sukses writeHoldingReg")
         return true
     else
         --trace("ERROR: ", error, ". Function writereg(). Address (", mod_address,") ",os.date())
@@ -555,7 +565,7 @@ end
 
 
 local function readHoldingRegister(pin, idslave, register, base, bit, tpin)
-    print ("idslave: ", idslave, ", reg: ", register - base, ", modbit: ",bit,", pin: ",pin,", tpin: ",tpin)
+--    print ("idslave: ", idslave, ", reg: ", register - base, ", modbit: ",bit,", pin: ",pin,", tpin: ",tpin)
     
     
     local result, error = modbushandle:readholdingregs(idslave, register - base, bit, COMMAND_TIMEOUT*1000)
@@ -564,7 +574,7 @@ local function readHoldingRegister(pin, idslave, register, base, bit, tpin)
     local simpan
     
     if success then
-        print ("sukses !! terima data, count: ", count)
+--        print ("sukses !! terima data, count: ", count)
         local buf = sys.buffer.create(data)
         if tonumber(bit) == 1 then
             extracted_value = buf:getInt16()
@@ -575,7 +585,7 @@ local function readHoldingRegister(pin, idslave, register, base, bit, tpin)
             for i = 1, j  do
                 --printf("Coil #%d = %d\n", 2 + i, buf:getBits(1))
                 extracted_value = buf:getInt32()
-                print("data[",i+tpin-1,"]: ", extracted_value)
+--                print("data[",i+tpin-1,"]: ", extracted_value)
                 simpan = svcmgr.setProp(128, (i+tpin-1) , extracted_value )
             end
             --
@@ -653,7 +663,7 @@ local function loop_properti()
         --if nPin&lt;=2 then
         --if nPin&lt;=1 then
         --[
-            print (i .. " &gt; " .. nPin)
+--            print (i .. " &gt; " .. nPin)
             propField = svcmgr.getPropDef(128,nPin)
             property_value = svcmgr.getProp(128, nPin)
 --            print ("i:", i, ", nPin: ", nPin,", nama: ", propField.name, ": ", property_value)
@@ -754,6 +764,9 @@ local function kirim_data_satelit()
 end
 --]]
 
+
+
+
 local function bacabaca()
     --local isi_table = { }
     --isi_table = svcmgr.getInfo(20)
@@ -771,38 +784,53 @@ local function bacabaca()
     local pro = nil
     --
     pro = svcmgr.getProp(20,2)
-    print("loop: ", merdeka, " FixValid loop: ", pro)
+    if pro==false then
+        print("loop: ", merdeka, " FixValid loop: ", pro)
+    end
     
     if svcmgr.getProp(20,2) then
         --print(string.format("---- FixValid loop = %d", merdeka))
         --print(string.format("source = %d ", svcmgr.getProp(20,1)) )
         --print(string.format("fixTipe = %d ", svcmgr.getProp(20,3)) )
         --[
-        lati   = svcmgr.getProp(20,6)       -- *6/360000
-        longi  = svcmgr.getProp(20,7)       -- *6/360000
+        lati   = svcmgr.getProp(20,6)*6/360000
+        longi  = svcmgr.getProp(20,7)*6/360000
         alti   = svcmgr.getProp(20,8)
-        speedi = svcmgr.getProp(20,9)       -- /5.4
-        headi  = svcmgr.getProp(20,10)      -- /10
-        print(string.format("lat     = %d (%3.5f degrees)", lati, lati*6/360000))
-        print(string.format("lon     = %d (%3.5f degrees)", longi, longi*6/360000))
-        print(string.format("Alti    = %d", alti))
-        print(string.format("speed   = %d (%3.1f km/h)", speedi, speedi/5.4))
-        print(string.format("heading = %d (%2d dgrees)", headi, headi/10))
+        speedi = svcmgr.getProp(20,9)/5.4
+        headi  = svcmgr.getProp(20,10)/10
+        --print(string.format("lat     = %d (%3.5f degrees)", lati, lati*6/360000))
+        --print(string.format("lon     = %d (%3.5f degrees)", longi, longi*6/360000))
+        --print(string.format("Alti    = %d", alti))
+        --print(string.format("speed   = %d (%3.1f km/h)", speedi, speedi/5.4))
+        --print(string.format("heading = %d (%2d dgrees)", headi, headi/10))
         --]]
         --print(string.format("fixTime = %d ", svcmgr.getProp(20,11)) )
         --print(string.format("fixAge = %d ", svcmgr.getProp(20,12)) )
-        
+
         DataAda = 1
         
-        pro = svcmgr.setProp(128, 131, 5791 )
+        simpan_float2uint32(lati,   128, 131)
+        simpan_float2uint32(longi,  128, 132)
+        simpan_float2uint32(headi,  128, 133)
+        simpan_float2uint32(speedi, 128, 134)
         
-        --svcmgr.setProp(128, 132, langi )
-        --pro = svcmgr.setProp(128, 133, headi )
-        --pro = svcmgr.setProp(128, 134, speedi )
         
+        
+        --pro = svcmgr.setProp(128, 131, (-384177) )
+        --pro = svcmgr.setProp(128, 131, (lati)   )
+        --print("hasil: ",pro,", lati: ",lati," : ",svcmgr.getProp(128, 131)," ---")
+        --pro = svcmgr.setProp(128, 132, (longi)  )
+        --print("hasil: ",pro,", lati: ",longi," : ",svcmgr.getProp(128, 132)," ---")
+        --pro = svcmgr.setProp(128, 133, (headi)  )
+        --print("hasil: ",pro,", lati: ",headi," : ",svcmgr.getProp(128, 133)," ---")
+        --pro = svcmgr.setProp(128, 134, (speedi) )
+        --print("hasil: ",pro,", lati: ",speedi," : ",svcmgr.getProp(128, 134)," ---")
+      
+        --[[     
         print(string.format("lat     = %d ", svcmgr.getProp(128, 131)))
-        --print(string.format("heading = %d ", svcmgr.getProp(128, 133)))
-        
+        print(string.format("heading = %d ", svcmgr.getProp(128, 133)))
+        --]]
+        --printf("++++++ selesai\r\n")
     end
     
     if DataAda == 1 then
@@ -1108,11 +1136,11 @@ function data_lokasi()
         --print(string.format("Alti    = %d", svcmgr.getProp(20,8)))
         --print(string.format("speed   = %d (%3.1f km/h)", svcmgr.getProp(20,9), svcmgr.getProp(20,9)/5.4))
         --print(string.format("heading = %d (%2d dgrees)", svcmgr.getProp(20,10), svcmgr.getProp(20,10)/10))
-        print(string.format("lat     = %3.5f degrees", lati*6/360000 ))
-        print(string.format("lon     = %3.5f degrees", longi*6/360000 ))
+        print(string.format("lat     = %3.5f degrees", lati ))
+        print(string.format("lon     = %3.5f degrees", longi ))
         print(string.format("Alti    = %d", alti ))
-        print(string.format("speed   = %3.1f km/h", speedi/5.4))
-        print(string.format("heading = %2d dgrees", headi/10))
+        print(string.format("speed   = %3.1f km/h", speedi))
+        print(string.format("heading = %2d dgrees", headi))
     else
         print("Masih mencari DataFix")
     end
@@ -1158,6 +1186,11 @@ local function shell_init()
     svc.shell.register("data", data_prop, "data Properti")
 end
 
+local function gprs_init()
+    
+end
+
+
 --
 -- Run service (required)
 --
@@ -1165,12 +1198,75 @@ function entry()
     print(_NAME, ": ", properties.banner)
   
     --print(hexToFloat("C58EBF11"))    -- -4567.89    --print(hexToFloat("42f6e979"))    -- 123.456
-    --print(hexToFloat("3f9e0610"))    -- 1.23456
+    --[[
+    local a = -384191       -- -6.40318 
+    local b = 6413267
+    local c = 1003 
+
+    local o = a*6/360000
+    
+    local p = nil
+    local q = nil
+    local s = b*6/360000
+    local result = nil
+
+    
+    local buf = sys.buffer.create(4)
+    print("a: ",a,", o: ",o," ---")
+    simpan_float2uint32(o, 128, 131)
+    
+    
+    q = svcmgr.getProp(128, 131)
+    --print("sedot : ", q)
+    a = hexToFloat(Dec2Hex(q))
+    print("float: ",a)
+    --]]
+    --[[
+    result = buf:getBits(8)
+    printf("byte1: %02X\r\n", result)
+    result = buf:getBits(8)
+    printf("byte2: %02X\r\n", result)
+    result = buf:getBits(8)
+    printf("byte3: %02X\r\n", result)
+    result = buf:getBits(8)
+    printf("byte4: %02X\r\n", result)
+    --]]
+    
+    
+    --[[
+    p = buf:getInt32()
+    print("p: ", p )
+    q = svcmgr.setProp(128, 211, p)
+    print("setq: ", q )
+    q = svcmgr.getProp(128, 211)
+    print("getq: ", q )
+    --]]
+    
+    --[[
+    print("a: ",a,", o: ",s," ---")
+    local bufd = nil
+    bufd = sys.buffer.create(4)
+    p = bufd:addFloat(s, false, false)
+    p = bufd:getInt32()
+    q = svcmgr.setProp(128, 212, p)
+    q = svcmgr.getProp(128, 212)
+    print("getq: ", q )
+    a = hexToFloat(Dec2Hex(q))
+    print("float: ",a)
+    bufd:clear()
+    --]]
+    --[[
+    simpan_float2uint32(s, 128, 132)
+    q = svcmgr.getProp(128, 132)
+    a = hexToFloat(Dec2Hex(q))
+    print("float: ",a)
+    --]]
     
     merdeka = 0
     print ("masuk thread worker")
     modbusThreadHandle = sched.spawn("worker_thread", workerThread)
     
+    gprs_init()
     --[
     local mb = modbus_init()
     if mb then 
