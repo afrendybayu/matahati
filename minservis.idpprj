@@ -539,11 +539,11 @@ end
 local function writeHoldingRegister(pin, idslave, register, base, jml, tPin)
     
     local buf = sys.buffer.create(4*jml)
---    print("PIN: ", pin, ", reg: ", register, ", jml: ", jml,", tPin: ", tPin)
+    print("PIN: ", pin, ", reg: ", register, ", jml: ", jml,", tPin: ", tPin)
     
     for i=1, jml do
         buf:addInt32(svcmgr.getProp(128, (tPin+i-1)), false, false)
---        print("data: ", svcmgr.getProp(128, (tPin+i-1)))
+        print("data: ", svcmgr.getProp(128, (tPin+i-1)))
     end
     
     local bytes, numBits = buf:getString()
@@ -553,7 +553,7 @@ local function writeHoldingRegister(pin, idslave, register, base, jml, tPin)
     --local data = {}
     --[
     if success then 
---        print("+++++ Sukses writeHoldingReg")
+        print("+++++ Sukses writeHoldingReg")
         return true
     else
         --trace("ERROR: ", error, ". Function writereg(). Address (", mod_address,") ",os.date())
@@ -574,7 +574,7 @@ local function readHoldingRegister(pin, idslave, register, base, bit, tpin)
     local simpan
     
     if success then
---        print ("sukses !! terima data, count: ", count)
+        print ("sukses !! terima data, count: ", count)
         local buf = sys.buffer.create(data)
         if tonumber(bit) == 1 then
             extracted_value = buf:getInt16()
@@ -621,7 +621,7 @@ end
 local function parsing_cmd_modbus(no , nama, params)
     --print("___ function parsing: ", nama, ": ", params)
     local tf, mb_addr, mb_reg, mb_base, mb_rw, mb_bit, mb_pin, mb_threshold, mb_value, mb_times = fillParameters(nama, params)
---    print ("alm: ", mb_addr,", reg: ", mb_reg, ", base: ",mb_base, ", rw: ",mb_rw, ", no: ", no, ", mb_bit: ", mb_bit, ", pin: ", mb_pin)
+    print ("alm: ", mb_addr,", reg: ", mb_reg, ", base: ",mb_base, ", rw: ",mb_rw, ", no: ", no, ", mb_bit: ", mb_bit, ", pin: ", mb_pin)
     
     --[
     if tf then
@@ -632,8 +632,8 @@ local function parsing_cmd_modbus(no , nama, params)
             local tf, hasil = readHoldingRegister(no, mb_addr, tonumber(string.sub(mb_reg, 2)), mb_base, nd, mb_pin )  
             if tf then
                 --print ("Nilai[", mb_reg, "]: ", hasil, " @", no+100)
-                local pro = nil
-                pro = svcmgr.setProp(128, no + 100 , hasil )
+                --local pro = nil
+                --pro = svcmgr.setProp(128, no + 100 , hasil )
                 --pro = svcmgr.getProp(128, (no+100) )
                 --print("hsl: ", pro, " --- ")
             end
@@ -668,7 +668,7 @@ local function loop_properti()
             property_value = svcmgr.getProp(128, nPin)
 --            print ("i:", i, ", nPin: ", nPin,", nama: ", propField.name, ": ", property_value)
             parsing_cmd_modbus(nPin, propField.name, property_value)
-            timer:arm(10)
+            sched.delay(1)      -- kasih delay biar bisa bernafas jon. X/10 detik
         --]]
         end
     end
@@ -785,7 +785,7 @@ local function bacabaca()
     --
     pro = svcmgr.getProp(20,2)
     if pro==false then
-        print("loop: ", merdeka, " FixValid loop: ", pro)
+    --    print("loop: ", merdeka, " FixValid loop: ", pro)
     end
     
     if svcmgr.getProp(20,2) then
@@ -890,6 +890,9 @@ local function workerThread()
             sched.delay(WORKER_THREAD_DELAY)
             merdeka = merdeka + 1
             
+--            print("RSSI: ",svcmgr.getProp(29,40),", serverCon: ",svcmgr.getProp(29,46),", NetwAl: ",svcmgr.getProp(29,31),", LinkSt: ",svcmgr.getProp(29,33))
+--            print("coverOpen: ",svcmgr.getProp(29,43),", NetwSt: ",svcmgr.getProp(29,45) )
+
             --messageHandle:send(1, {text = reportText})
             --[
             
@@ -1187,7 +1190,43 @@ local function shell_init()
 end
 
 local function gprs_init()
+    svcmgr.setProp(29, 1, "")                   -- PIN
+    svcmgr.setProp(29, 2, "telkomsel")          -- APN
+    svcmgr.setProp(29, 3, "wap")                -- username
+    svcmgr.setProp(29, 4, "wap123")             -- password
+    svcmgr.setProp(29, 5, "4.2.2.1")            -- DNS1
+    --svcmgr.setProp(29, 6, "")                   -- DNS2
+    svcmgr.setProp(29,50, "118.96.107.182")     -- server
+    svcmgr.setProp(29,51, "1234")             -- port
     
+    
+    local dt = nil
+    print("APN : ", svcmgr.getProp(29, 2) )
+    print("user: ", svcmgr.getProp(29, 3) )
+    print("Pwd : ", svcmgr.getProp(29, 4) )
+    print("DNS1: ", svcmgr.getProp(29, 5) )
+    print("DNS2: ", svcmgr.getProp(29, 6) )
+    print("mnfg: ", svcmgr.getProp(29, 20))
+    print("cell: ", svcmgr.getProp(29, 27))             -- 
+    print("Netw: ", svcmgr.getProp(29, 31))
+    print("RSSI: ", svcmgr.getProp(29, 40))
+    print("SIMs: ", svcmgr.getProp(29, 44))
+    print("Serv: ", svcmgr.getProp(29, 50))
+    print("Port: ", svcmgr.getProp(29, 51))
+
+--[[
+    Access point name : telkomsel
+    User name : wap
+    Prompt password : No
+    Password : wap123
+    Authentication : Normal
+    Homepage : http://wap.telkomsel.com
+    Network type : IPv4
+    Phone IP Address : Automatic
+    DNS Address : Automatic
+    Proxy serv. Address : 10.1.89.130
+    Proxy port number :8000
+--]]
 end
 
 
@@ -1198,75 +1237,12 @@ function entry()
     print(_NAME, ": ", properties.banner)
   
     --print(hexToFloat("C58EBF11"))    -- -4567.89    --print(hexToFloat("42f6e979"))    -- 123.456
-    --[[
-    local a = -384191       -- -6.40318 
-    local b = 6413267
-    local c = 1003 
-
-    local o = a*6/360000
-    
-    local p = nil
-    local q = nil
-    local s = b*6/360000
-    local result = nil
-
-    
-    local buf = sys.buffer.create(4)
-    print("a: ",a,", o: ",o," ---")
-    simpan_float2uint32(o, 128, 131)
-    
-    
-    q = svcmgr.getProp(128, 131)
-    --print("sedot : ", q)
-    a = hexToFloat(Dec2Hex(q))
-    print("float: ",a)
-    --]]
-    --[[
-    result = buf:getBits(8)
-    printf("byte1: %02X\r\n", result)
-    result = buf:getBits(8)
-    printf("byte2: %02X\r\n", result)
-    result = buf:getBits(8)
-    printf("byte3: %02X\r\n", result)
-    result = buf:getBits(8)
-    printf("byte4: %02X\r\n", result)
-    --]]
-    
-    
-    --[[
-    p = buf:getInt32()
-    print("p: ", p )
-    q = svcmgr.setProp(128, 211, p)
-    print("setq: ", q )
-    q = svcmgr.getProp(128, 211)
-    print("getq: ", q )
-    --]]
-    
-    --[[
-    print("a: ",a,", o: ",s," ---")
-    local bufd = nil
-    bufd = sys.buffer.create(4)
-    p = bufd:addFloat(s, false, false)
-    p = bufd:getInt32()
-    q = svcmgr.setProp(128, 212, p)
-    q = svcmgr.getProp(128, 212)
-    print("getq: ", q )
-    a = hexToFloat(Dec2Hex(q))
-    print("float: ",a)
-    bufd:clear()
-    --]]
-    --[[
-    simpan_float2uint32(s, 128, 132)
-    q = svcmgr.getProp(128, 132)
-    a = hexToFloat(Dec2Hex(q))
-    print("float: ",a)
-    --]]
     
     merdeka = 0
     print ("masuk thread worker")
     modbusThreadHandle = sched.spawn("worker_thread", workerThread)
     
-    gprs_init()
+    --gprs_init()
     --[
     local mb = modbus_init()
     if mb then 
