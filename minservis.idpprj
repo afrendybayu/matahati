@@ -997,19 +997,64 @@ local DMRFrameConfig =  {
 
 --]]
 
+local chr = 97
+
 local function onFrameReceived(success, FrE)
  --   serHandle.writestr(serHandle, frameOrError)
     if success then
+        local serbuf = nil
+        local sukbuf = nil
+        local dt = 0
         --serHandle.writestr(serHandle, frameOrError)
-        --serHandle.getFrame
-        
-        serHandle.writestr(serHandle, "sukses\r\n")
-        --serHandle.writestr(serHandle, string.format("--&gt; %02x %02x %02x %02x\r\n", FrE[0],FrE[1],FrE[2],FrE[3]))
-        --serHandle.writestr(serHandle, string.format("--&gt;%d\r\n", FrE[0]))
+        sukbuf, serbuf = serHandle:getFrame(0,100)
+        sched.delay(2)
+        print("sukses terima: ", sukbuf, ":",serbuf,"&lt;--")        -- ,string.byte(serbuf,1)
+        --serHandle.writestr(serHandle, string.format("&gt;&gt;%d&lt;&lt;",sukbuf ) )
+        if sukbuf then
+            local id  = 1
+            local cmd = 3
+            local len = 5
+            if serbuf==nil then
+                print("  kosong")
+            else
+            
+                id  = string.byte(serbuf,1)
+                cmd = string.byte(serbuf,2)
+                print("  isi: ",id," ",cmd)
+                if id==0x11 then
+                    print("  sukses")
+                end
+            end
+            --serHandle.writestr(serHandle, "sukses\n")
+            
+            --serHandle.write(serHandle, string.byte(serbuf,1,8))
+            --local aa = string.byte(serbuf,1)
+            --if aa==50 then
+	         --    serHandle.writestr(serHandle, "aaa")
+	         --end
+            --serHandle.writestr(serHandle, aa)
+            --serHandle.writestr(serHandle, string.format("--&gt; %d\r\n",string.byte(serbuf,1) ) )
+            --[[
+            if string.byte(serbuf,2)==0x25 then
+                serHandle.write(serHandle, "cocok\r\n")
+            else
+                serHandle.write(serHandle, "tidak cocok\r\n")
+            end
+            --]]
+            --chr = string.byte(serbuf,1)
+            --[[
+            --serHandle.writestr(serHandle, string.byte(serbuf,3,8))
+            if "string" == type( serbuf ) then
+                serHandle.write(serHandle, "string\r\n")
+            elseif "table" == type( serbuf ) then
+                serHandle.write(serHandle, "table\r\n")
+            end
+            --]]
+        end
     else
-    serHandle.writestr(serHandle, "gagal\r\n")
+    --serHandle.writestr(serHandle, "GG\n")
     end
-    sched.delay(20)
+    --
 end
 
 
@@ -1121,8 +1166,11 @@ local function serial_req()
     --local tulis = "serial req thread\n"
     --serHandle.writestr(serHandle, tulis)
     isWaitingData = nil
-    local hslFrame = nil
+    local loopK = 1
     while true do
+    
+        --serial_init()
+        
         -- ensure we always listen for the next frame.
         --isWaitingData = (serHandle ~= nil) and (isWaitingData or serHandle:eventOnFrame(
         --  math.min(properties.readSize, maxReadSize), properties.readIdleTimeout))
@@ -1131,11 +1179,14 @@ local function serial_req()
         
         --serHandle.writestr(serHandle, "AT+SENDFILE\r\n")
         local data = { 0x11, 0x25, 0x00, 0x00, 0x00, 0x00 } -- data with XON in middle.
+        
+        print("kirim data: ",loopK)
+        loopK = loopK+1
         serHandle:writeframe(data)
-
+        
         --[
         --isWaitingData = (serHandle ~= nil) and (isWaitingData or serHandle:eventOnFrame(0,500))
-        isWaitingData = (serHandle ~= nil) and (serHandle:eventOnFrame(0,500))     -- 0: read max length data, 500ms timeout
+        isWaitingData = (serHandle ~= nil) and (serHandle:eventOnFrame(0,500))     -- 0: read max length data, 200ms timeout
         
         --isWaitingData = nil
         local args = { sched.waitQ(-1, serQ) }  --  -1: wait forever, 
@@ -1159,8 +1210,9 @@ local function serial_req()
             --serHandle.writestr(serHandle, "bukan event\r\n")
         end
         --]]
+        --svc.serial.disconnect(serHandle)
         
-        sched.delay(50)
+        sched.delay(40)
     end
     
 end
@@ -1238,6 +1290,20 @@ local function DataCmd(args)
     print(string.format("heading = %d (%2d dgrees)", svcmgr.getProp(20,10), svcmgr.getProp(20,10)/10))
 end
 
+function echoCmd(args)
+    if #args &gt; 0 then
+        for i = 1, #args do
+            print("args[", i, "] = ", args[i])
+        end
+    else
+        print("*** error: no arguments (usage: \"echo arg1 [arg2 ...]\")")
+  end
+end
+
+local function ResponSer(args)
+    print("chr: ", tonumber(chr))
+end
+
 local function data_prop(args)
     print("Data Properties")
     local pro = nil
@@ -1258,6 +1324,7 @@ local function shell_init()
     svc.shell.register("cek_data", DataCmd, "Cek Data")
     svc.shell.register("cek_lok", data_lokasi, "data Lokasi")
     svc.shell.register("data", data_prop, "data Properti")
+    svc.shell.register("res", ResponSer, "data Properti")
 end
 
 local function gprs_init()
@@ -1314,7 +1381,7 @@ function entry()
     print ("masuk thread worker")
     modbusThreadHandle = sched.spawn("worker_thread", workerThread)
     
-    --gprs_init()
+    gprs_init()
     --[[
     local mb = modbus_init()
     if mb then 
@@ -1328,13 +1395,18 @@ function entry()
     --[
     local ser = serial_init()
     if ser then
-        --print ("serial terbuka")
+        print ("serial terbuka")
         --serHandle.writestr(serHandle, "serial terbuka\n")
         serialThreadHandle = sched.spawn("serial_thread", serial_req)
-        sched.delay(1)
-        
+        sched.delay(1)        
     end
     --]]
+    
+    --serialThreadHandle = sched.spawn("serial_thread", serial_req)
+    --sched.delay(1)
+    
+    
+    
     --[[
     --local kurir = kurir_init()
     --if kurir then
