@@ -191,7 +191,8 @@ Format:
 
 module(..., package.seeall)
 
---require("util.lua")
+--require("modbus")
+--dofile("serial.lua")
 
 --
 -- Version information (required)
@@ -228,7 +229,7 @@ local mengirimThreadHandle = nil
 
 local serHandle = nil         -- handle sending and receiving data over serial port.
 local serQ                    -- event queue associated with the RS232 serial port.
-local isWaitingData           -- whether we are currently waiting for data on the serial port.
+
 
 
 local timer
@@ -259,17 +260,6 @@ local mod_threshold
 
 -- -------------------------------------------------------------------------
 
-local function extract_field(s_string)
-    local s_field
-    local first_p,second_p = string.find(s_string,";",1)
-    if tonumber(first_p) ~= nil and tonumber(first_p) &gt; 1 then
-        if tonumber(string.sub(s_string, 1, second_p-1) ) ~= nil then
-            s_field = string.sub(s_string, 1, second_p-1)
-            return s_field, string.sub(s_string, second_p + 1 , string.len(s_string))
-        end
-    end
-    return false, s_string
-end
 
 local function fillParameters(pName, conf_params)
 -- -------------------------------------------------------------------------
@@ -976,8 +966,8 @@ end
 
 --
 local DMRFrameConfig =  {
-    maxRxSize = 6144,
-    maxTxSize = 16,
+    maxRxSize = 6400,
+    maxTxSize = 30,
     minFrameSize = 5,  -- prefix + length + chksum
     frameStart = -1,
     frameEnd = -1, 
@@ -999,105 +989,98 @@ local DMRFrameConfig =  {
 
 local chr = 97
 
+local function cariInt(str)
+    local i = 0
+    local j = 0
+    for j=0, 3, 1 do
+        local z = string.byte(str,j+1)
+        if z==nil then
+            z = 0
+        end
+        i = assert(bit32.lshift(z, j*8))+i
+        --print("i: ",i)
+    end
+    return i
+end
+
+
+local lenFile  = 0
+local namaFile = nil
+local isiFile = nil
+local iparFile = 0
+local tblFile  = { }
+
+
+local function num2strb(num,optionalNumberOfBytes)
+    local retString=""
+    optionalNumberOfBytes = optionalNumberOfBytes or 4
+ 
+    for i=1,optionalNumberOfBytes do
+        retString = retString..string.char(num%256)
+        num = math.floor(num/256)
+    end
+    return retString
+end
+
 local function onFrameReceived(success, FrE)
  --   serHandle.writestr(serHandle, frameOrError)
+    local hasil = 0
+    --print("sukses terima: ", success)
     if success then
         local serbuf = nil
         local sukbuf = nil
         local dt = 0
         --serHandle.writestr(serHandle, frameOrError)
-        sukbuf, serbuf = serHandle:getFrame(0,100)
+        sukbuf, serbuf = serHandle:getFrame(0,5000)
         sched.delay(2)
-        print("sukses terima: ", sukbuf, ":",serbuf,"&lt;--")        -- ,string.byte(serbuf,1)
+        
+        --print("sukses terima: ", sukbuf, ":",serbuf,"&lt;--")        -- ,string.byte(serbuf,1)
+        --print("sukses terima: ", sukbuf)        -- ,string.byte(serbuf,1)
         --serHandle.writestr(serHandle, string.format("&gt;&gt;%d&lt;&lt;",sukbuf ) )
+        --[
         if sukbuf then
-            local id  = 1
-            local cmd = 3
-            local len = 5
-            if serbuf==nil then
+            local id  = 0
+            local cmd = 0
+            local titik = 0
+            local slen = nil
+            
+            if serbuf==""  then
                 print("  kosong")
             else
-            
                 id  = string.byte(serbuf,1)
-                cmd = string.byte(serbuf,2)
-                print("  isi: ",id," ",cmd)
                 if id==0x11 then
-                    print("  sukses")
+                    cmd = string.byte(serbuf,2)
+                    slen = string.sub(serbuf, 3, 6)
+                    iparFile = cariInt(slen)
+                    slen     = string.sub(serbuf, 7, 10)
+                    lenFile  = cariInt(slen)
+                    slen     = string.sub(serbuf, 11, 14)
+                    titik    = cariInt(slen)
+                    namaFile = string.sub(serbuf, 15, 26)
+                    
+
+                    if lenFile==iparFile then
+                        print("--- END REQ hasil: ",hasil)
+                        hasil = 2
+                    else                    -- tambahkan isi file
+                        hasil = 1
+                    end
+                    isiFile = string.sub(serbuf, 27, 31)..string.sub(serbuf, -4, -1)
+                    table.insert(tblFile, string.sub(serbuf, 27, -1))
+                    
+                    print("  isi: ",id," ",cmd," len: ",iparFile,"/",lenFile," titik: ",titik," nama: ",namaFile," isi: ",isiFile)
+                    --isiFile = isiFile..string.sub(serbuf, 27, -1)
+                    --print("pjg File: ",string.len(isiFile))
                 end
             end
             --serHandle.writestr(serHandle, "sukses\n")
-            
-            --serHandle.write(serHandle, string.byte(serbuf,1,8))
-            --local aa = string.byte(serbuf,1)
-            --if aa==50 then
-	         --    serHandle.writestr(serHandle, "aaa")
-	         --end
-            --serHandle.writestr(serHandle, aa)
-            --serHandle.writestr(serHandle, string.format("--&gt; %d\r\n",string.byte(serbuf,1) ) )
-            --[[
-            if string.byte(serbuf,2)==0x25 then
-                serHandle.write(serHandle, "cocok\r\n")
-            else
-                serHandle.write(serHandle, "tidak cocok\r\n")
-            end
-            --]]
-            --chr = string.byte(serbuf,1)
-            --[[
-            --serHandle.writestr(serHandle, string.byte(serbuf,3,8))
-            if "string" == type( serbuf ) then
-                serHandle.write(serHandle, "string\r\n")
-            elseif "table" == type( serbuf ) then
-                serHandle.write(serHandle, "table\r\n")
-            end
-            --]]
-        end
-    else
-    --serHandle.writestr(serHandle, "GG\n")
-    end
-    --
-end
-
-
-function hash(str)
--- http://code.matthewwild.co.uk/yubikey-lua/file/598d09faf89c/crc16/crc16.lua
-    local crc;
-
-    local function initCrc()
-        crc = 0xffff;
-    end
-
-    local function updCrc(byte)
-        --serHandle:write(byte)
-        --local byt = math.pi
-        --crc = bit32.bor(crc, byte);
-        local qq = bit32.bxor(0xA1A1, 0xffff);       -- bit32.bxor math.bxor tidak ada
-        
-        serHandle:write(qq)
-        --[[
-        for i=1,8 do
-            local j = math.band(crc, 1);
-            crc = math.rshift(crc, 1);
-            if j ~= 0 then
-                crc = math.bxor(crc, 0xA001);
-            end
         end
         --]]
+    else
+        print("GAGAL\n")
+    --serHandle.writestr(serHandle, "GG\n")
     end
-
-    local function getCrc(str)
-        initCrc();
-        print("str: ",str)
-        for i = 1, #str  do
-            --local c = str:sub(i,i)
-            --updCrc(str:byte(i));
-            --local c = str[i]
-            --serHandle:write(str[i])
-            updCrc(str[i]);
-            --serHandle:write(str:getBits(8))
-        end
-        return crc;
-    end
-    return getCrc(str);
+    return hasil
 end
 
 local function serial_config()
@@ -1162,66 +1145,12 @@ local function serial_config()
     end
 end
 
-local function serial_req()
-    --local tulis = "serial req thread\n"
-    --serHandle.writestr(serHandle, tulis)
-    isWaitingData = nil
-    local loopK = 1
-    while true do
-    
-        --serial_init()
-        
-        -- ensure we always listen for the next frame.
-        --isWaitingData = (serHandle ~= nil) and (isWaitingData or serHandle:eventOnFrame(
-        --  math.min(properties.readSize, maxReadSize), properties.readIdleTimeout))
-        -- wait for ANY event to occur.
-        --sched.delay(20)
-        
-        --serHandle.writestr(serHandle, "AT+SENDFILE\r\n")
-        local data = { 0x11, 0x25, 0x00, 0x00, 0x00, 0x00 } -- data with XON in middle.
-        
-        print("kirim data: ",loopK)
-        loopK = loopK+1
-        serHandle:writeframe(data)
-        
-        --[
-        --isWaitingData = (serHandle ~= nil) and (isWaitingData or serHandle:eventOnFrame(0,500))
-        isWaitingData = (serHandle ~= nil) and (serHandle:eventOnFrame(0,500))     -- 0: read max length data, 200ms timeout
-        
-        --isWaitingData = nil
-        local args = { sched.waitQ(-1, serQ) }  --  -1: wait forever, 
-        local srcQ, evt = table.remove(args, 1), table.remove(args, 1)
-        
-        if srcQ == serQ then
-            if evt == 'FRAME' then
-                --serHandle.writestr(serHandle, "serial frame\r\n")
-                -- ensure we wait for the next frame right away, only if we still are connected.
-                --isWaitingData = (serHandle ~= nil) and serHandle:eventOnFrame(
-                --  math.min(properties.readSize, maxReadSize), properties.readIdleTimeout)
-                onFrameReceived(unpack(args))
-            elseif evt == 'BREAK' then
-                --onBreakReceived()
-                --serHandle.writestr(serHandle, "BREAK\r\n")
-            else
-                --trace(_NAME, ": unsupported RS232 event ( ", evt, " )")
-                --serHandle.writestr(serHandle, "TAK SUPPORT\r\n")
-            end
-        else
-            --serHandle.writestr(serHandle, "bukan event\r\n")
-        end
-        --]]
-        --svc.serial.disconnect(serHandle)
-        
-        sched.delay(40)
-    end
-    
-end
-
 local function serial_init()
-    --print("masuk tes serial")
+    print("masuk serial init")
     --svc.shell.detach()
     -- wait a bit for the serial port to be released.
     sched.delay(1)
+    svcmgr.setProp(22, 21, 7)                   -- Baud RS485: 115200 [7]
     local handle, err = svc.rs232.connect('rs485')
     if handle then
         serHandle = handle
@@ -1229,22 +1158,7 @@ local function serial_init()
         serial_config()
         --serHandle.writestr(serHandle, "serial sudah konfig\n")
         --serHandle.writestr(serHandle, "AT+SENDFILE\r\n")
-        
-        
-        
-        --local crc = math.hextodecimal('FFFF')
-        --[[
-        for i=1, len do
-            crc = CRC16(crc, data)
-            --Crc = CRC16 (Crc, data[i] );
-        end
-        --]]
-        --hash(data)
-        --printf("CRC Modbus: %04X\r\n", Crc);
-        --usp_crc = math.hextodecimal('FFFF')
-        --serHandle:write(data)
-        --usp_crc=process_crc(data)
-        --serHandle:write(data)
+
         
         --disconnect(handle)
         return true
@@ -1254,6 +1168,91 @@ local function serial_init()
     end
 end
 
+local function serial_req()
+    --local tulis = "serial req thread\n"
+    --serHandle.writestr(serHandle, tulis)
+    --isWaitingData = nil
+    local isWaitingData = nil          -- whether we are currently waiting for data on the serial port.
+    local lSer = 0
+    local hser = nil
+    
+    while true do       -- kirim multifile ke GPRS 
+        local ser = serial_init()
+        sched.delay(2)
+        
+        --[
+        if ser then
+            local loopK = 1
+            
+            while loopK&lt;6 do        -- Ambil 1 siklus file
+            
+                if loopK==1 or hser==0 then -- ambil data file pertama
+                    local data = { 0x11, 0x25, 0x00, 0x00, 0x00, 0x00 } -- data with XON in middle.
+                    lSer = lSer+1
+                    --print("\nkirim awal data: ",lSer)
+                    serHandle:writeframe(data)
+                    lenFile  = 0
+                    iparFile = 0
+                    tblFile = {}
+                end
+                
+                if hser==1 then     -- ambil next data file
+
+                    --local data = { 0x11, 0x25, 0x14, 0x0e, 0x74, 0x17 } -- data with XON in middle.       
+                    serHandle:writeframe(0x11,0x25,num2strb(iparFile,2),num2strb(lenFile,2),namaFile)
+                    --serHandle:writeframe(0x11,0x25,pF,tF,namaFile)
+                end
+                --
+                --isWaitingData = (serHandle ~= nil) and (isWaitingData or serHandle:eventOnFrame(0,500))
+                isWaitingData = (serHandle ~= nil) and (serHandle:eventOnFrame(0,1000))     -- 0: read max length data, 200ms timeout
+               
+
+                local args = { sched.waitQ(-1, serQ) }  --  -1: wait forever, 
+                local srcQ, evt = table.remove(args, 1), table.remove(args, 1)
+                
+                if srcQ == serQ then
+                    if evt == 'FRAME' then
+                        --serHandle.writestr(serHandle, "serial frame\r\n")
+                        -- ensure we wait for the next frame right away, only if we still are connected.
+                        --isWaitingData = (serHandle ~= nil) and serHandle:eventOnFrame(
+                        --  math.min(properties.readSize, maxReadSize), properties.readIdleTimeout)
+                        hser = onFrameReceived(unpack(args))
+                    elseif evt == 'BREAK' then
+                        --onBreakReceived()
+                        --serHandle.writestr(serHandle, "BREAK\r\n")
+                    else
+                        --trace(_NAME, ": unsupported RS232 event ( ", evt, " )")
+                        --serHandle.writestr(serHandle, "TAK SUPPORT\r\n")
+                    end
+                else
+                    --serHandle.writestr(serHandle, "bukan event\r\n")
+                    
+                end
+                --]
+                --svc.serial.disconnect(serHandle)
+                
+                if hser==2 then
+                    print("+++++++++++++++++ KIRIM FILE ke SERVER GPRS =================\n")
+                    local fixFile = ""
+                    fixFile = table.concat(tblFile)
+                    --print("isi: ",fixFile)
+                    --print("jml File: ", #tblFile)
+                    
+                    break
+                end
+                
+                sched.delay(30)
+                loopK = loopK+1
+            end
+        end
+        --]]
+        print("diskonek serial")
+        sched.delay(5)
+        svc.serial.disconnect(serHandle)
+        sched.delay(30)
+    end
+    
+end
 
 function data_lokasi()
     if DataAda == 1 then
@@ -1327,6 +1326,7 @@ local function shell_init()
     svc.shell.register("res", ResponSer, "data Properti")
 end
 
+--[
 local function gprs_init()
     svcmgr.setProp(29, 1, "")                   -- PIN
     svcmgr.setProp(29, 2, "telkomsel")          -- APN
@@ -1352,21 +1352,21 @@ local function gprs_init()
     print("Serv: ", svcmgr.getProp(29, 50))
     print("Port: ", svcmgr.getProp(29, 51))
 
---[[
-    Access point name : telkomsel
-    User name : wap
-    Prompt password : No
-    Password : wap123
-    Authentication : Normal
-    Homepage : http://wap.telkomsel.com
-    Network type : IPv4
-    Phone IP Address : Automatic
-    DNS Address : Automatic
-    Proxy serv. Address : 10.1.89.130
-    Proxy port number :8000
---]]
+--
+--    Access point name : telkomsel
+--    User name : wap
+--    Prompt password : No
+--    Password : wap123
+--    Authentication : Normal
+--    Homepage : http://wap.telkomsel.com
+--    Network type : IPv4
+--    Phone IP Address : Automatic
+--    DNS Address : Automatic
+--    Proxy serv. Address : 10.1.89.130
+--    Proxy port number :8000
+--
 end
-
+--]]
 
 --
 -- Run service (required)
@@ -1392,7 +1392,7 @@ function entry()
     end
     --]]
     
-    --[
+    --[[
     local ser = serial_init()
     if ser then
         print ("serial terbuka")
@@ -1402,7 +1402,7 @@ function entry()
     end
     --]]
     
-    --serialThreadHandle = sched.spawn("serial_thread", serial_req)
+    serialThreadHandle = sched.spawn("serial_thread", serial_req)
     --sched.delay(1)
     
     
@@ -1443,6 +1443,23 @@ end
         <SourceFile>
           <Name>modbus.lua</Name>
           <Source>
+
+
+
+local function extract_field(s_string)
+    local s_field
+    local first_p,second_p = string.find(s_string,";",1)
+    if tonumber(first_p) ~= nil and tonumber(first_p) &gt; 1 then
+        if tonumber(string.sub(s_string, 1, second_p-1) ) ~= nil then
+            s_field = string.sub(s_string, 1, second_p-1)
+            return s_field, string.sub(s_string, second_p + 1 , string.len(s_string))
+        end
+    end
+    return false, s_string
+end
+
+
+
 --[[
 module(..., package.seeall)
 
@@ -1625,6 +1642,12 @@ end
  trace("value (W) to write : ",mod_value)
  trace("times (W) to write : ",mod_times)
 --]]</Source>
+        </SourceFile>
+        <SourceFile>
+          <Name>serial.lua</Name>
+          <Source>
+
+</Source>
         </SourceFile>
       </SourceFiles>
     </Service>
