@@ -987,8 +987,6 @@ local DMRFrameConfig =  {
 
 --]]
 
-local chr = 97
-
 local function cariInt(str)
     local i = 0
     local j = 0
@@ -1022,6 +1020,10 @@ local function num2strb(num,optionalNumberOfBytes)
     return retString
 end
 
+local function file_sukses_dikirim()
+    serHandle:writeframe(0x11,0x26,namaFile)
+end
+
 local function onFrameReceived(success, FrE)
  --   serHandle.writestr(serHandle, frameOrError)
     local hasil = 0
@@ -1031,7 +1033,7 @@ local function onFrameReceived(success, FrE)
         local sukbuf = nil
         local dt = 0
         --serHandle.writestr(serHandle, frameOrError)
-        sukbuf, serbuf = serHandle:getFrame(0,5000)
+        sukbuf, serbuf = serHandle:getFrame(0,3000)
         sched.delay(2)
         
         --print("sukses terima: ", sukbuf, ":",serbuf,"&lt;--")        -- ,string.byte(serbuf,1)
@@ -1060,7 +1062,7 @@ local function onFrameReceived(success, FrE)
                     
 
                     if lenFile==iparFile then
-                        print("--- END REQ hasil: ",hasil)
+                        --print("--- END REQ hasil: ",hasil)
                         hasil = 2
                     else                    -- tambahkan isi file
                         hasil = 1
@@ -1168,6 +1170,9 @@ local function serial_init()
     end
 end
 
+
+
+
 local function serial_req()
     --local tulis = "serial req thread\n"
     --serHandle.writestr(serHandle, tulis)
@@ -1194,6 +1199,7 @@ local function serial_req()
                     lenFile  = 0
                     iparFile = 0
                     tblFile = {}
+                    namaFile = ""
                 end
                 
                 if hser==1 then     -- ambil next data file
@@ -1219,13 +1225,13 @@ local function serial_req()
                         hser = onFrameReceived(unpack(args))
                     elseif evt == 'BREAK' then
                         --onBreakReceived()
-                        --serHandle.writestr(serHandle, "BREAK\r\n")
+                        --print("BREAK\r\n")
                     else
                         --trace(_NAME, ": unsupported RS232 event ( ", evt, " )")
-                        --serHandle.writestr(serHandle, "TAK SUPPORT\r\n")
+                        --print("TAK SUPPORT\r\n")
                     end
                 else
-                    --serHandle.writestr(serHandle, "bukan event\r\n")
+                    --print("bukan event\r\n")
                     
                 end
                 --]
@@ -1237,11 +1243,11 @@ local function serial_req()
                     fixFile = table.concat(tblFile)
                     --print("isi: ",fixFile)
                     --print("jml File: ", #tblFile)
-                    
+                    file_sukses_dikirim()
                     break
                 end
                 
-                sched.delay(30)
+                sched.delay(5)
                 loopK = loopK+1
             end
         end
@@ -1249,7 +1255,7 @@ local function serial_req()
         print("diskonek serial")
         sched.delay(5)
         svc.serial.disconnect(serHandle)
-        sched.delay(30)
+        sched.delay(5)
     end
     
 end
@@ -1300,7 +1306,7 @@ function echoCmd(args)
 end
 
 local function ResponSer(args)
-    print("chr: ", tonumber(chr))
+    
 end
 
 local function data_prop(args)
