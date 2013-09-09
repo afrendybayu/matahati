@@ -580,14 +580,14 @@ end
 
 
 local function readHoldingRegister(pin, idslave, register, base, bit, tpin)
---    print ("idslave: ", idslave, ", reg: ", register - base, ", modbit: ",bit,", pin: ",pin,", tpin: ",tpin)
+    print ("idslave: ", idslave, ", reg: ", register - base, ", modbit: ",bit,", pin: ",pin,", tpin: ",tpin)
     
-    
+    --[
     local result, error = modbushandle:readholdingregs(idslave, register - base, bit, COMMAND_TIMEOUT*1000)
     local q, event, success, error, count, data, raw = mb485Q:wait(-1)
     local extracted_value = 0
     local simpan
-    
+    --[
     if success then
         print ("sukses !! terima data, count: ", count)
         local buf = sys.buffer.create(data)
@@ -638,7 +638,7 @@ local function parsing_cmd_modbus(no , nama, params)
     local tf, mb_addr, mb_reg, mb_base, mb_rw, mb_bit, mb_pin, mb_threshold, mb_value, mb_times = fillParameters(nama, params)
     print ("alm: ", mb_addr,", reg: ", mb_reg, ", base: ",mb_base, ", rw: ",mb_rw, ", no: ", no, ", mb_bit: ", mb_bit, ", pin: ", mb_pin)
     
-    --[[
+    --[
     if tf then
         if tonumber(mb_rw) == 0 and string.sub(mb_reg, 1,1) == "4" then  -- rx:0, reg:4xxxx
             --print(" Read holding register(s):", no, ", addr: ", mb_addr, ", reg: ", tonumber(string.sub(mb_reg, 2))) --
@@ -984,7 +984,7 @@ end
 local function modbus_init()
     if OpenConnection() then
         --print(_NAME, " MODBUS sukasuka connection open. ", os.date())   
-        --mb485Q = sched.createEventQ(1,'_MODBUS', modbushandle)
+        mb485Q = sched.createEventQ(1,'_MODBUS', modbushandle)
         return true
     else
         print (_NAME, "MODBUS GAGAL !!!!!!!")
@@ -1228,7 +1228,7 @@ local function data_serial()
             while loopK&lt;6 do        -- Ambil 1 siklus file
             
                 if loopK==1 or hser==0 then -- ambil data file pertama
-                    local data = { 0x11, 0x25, 0x00, 0x00, 0x00, 0x00 } -- data with XON in middle.
+                    local data = { 0x12, 0x25, 0x00, 0x00, 0x00, 0x00 } -- data with XON in middle.
                     lSer = lSer+1
                     print("\nkirim awal data: ",lSer)
                     serHandle:writeframe(data)
@@ -1241,7 +1241,7 @@ local function data_serial()
                 if hser==1 then     -- ambil next data file
 
                     --local data = { 0x11, 0x25, 0x14, 0x0e, 0x74, 0x17 } -- data with XON in middle.       
-                    serHandle:writeframe(0x11,0x25,num2strb(iparFile,2),num2strb(lenFile,2),namaFile)
+                    serHandle:writeframe(0x12,0x25,num2strb(iparFile,2),num2strb(lenFile,2),namaFile)
                     --serHandle:writeframe(0x11,0x25,pF,tF,namaFile)
                 end
                 --
@@ -1323,12 +1323,12 @@ local function transaksi_req()
         if flagTimer == 1 then            
             flagTimer = 0
             print("---&gt; tendang data ke monita ",os.date()," ", waktui)
-            
+            sched.delay(2)
             data_modbus()
+            sched.delay(2)
             data_serial()
         end
         sched.delay(10)         -- 10 = 1 detik
-        
     end
 end
 
