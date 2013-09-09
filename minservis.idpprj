@@ -34,7 +34,7 @@ Format:
      &lt;threshold&gt; ;
 </Description>
           <PIN>1</PIN>
-          <Value>17;41001;0;0;14;101;0000;</Value>
+          <Value>17;41001;0;0;14;101;0000</Value>
         </Property>
         <Property xsi:type="StringProperty">
           <Name>mb2_monita_sat_send</Name>
@@ -49,7 +49,7 @@ Format:
      &lt;pin data&gt; ;
 </Description>
           <PIN>2</PIN>
-          <Value>17;41021;0;1;4;131;000;</Value>
+          <Value>17;41021;0;1;5;131;000;</Value>
         </Property>
         <Property xsi:type="StringProperty">
           <Name>mb3_bat_req</Name>
@@ -152,6 +152,10 @@ Format:
           <PIN>134</PIN>
         </Property>
         <Property xsi:type="SignedIntProperty">
+          <Name>mb35_sat_time</Name>
+          <PIN>135</PIN>
+        </Property>
+        <Property xsi:type="SignedIntProperty">
           <Name>mb51_bat_teg</Name>
           <PIN>151</PIN>
         </Property>
@@ -161,6 +165,10 @@ Format:
           <Name>PesanCijolang</Name>
           <MIN>1</MIN>
           <Fields>
+            <Field xsi:type="SignedIntField">
+              <Name>waktux</Name>
+              <Size>32</Size>
+            </Field>
             <Field xsi:type="SignedIntField">
               <Name>latx</Name>
               <Size>32</Size>
@@ -209,6 +217,7 @@ local COMMAND_INTERVAL = 1   -- Time between register queries (in secs)
 local MENGIRIM_THREAD_DELAY = 36000
 local KURANG_DELAY = 50
 local WORKER_THREAD_DELAY = 100
+local DATA_DELAY = 600
 
 
 --
@@ -226,6 +235,8 @@ local XOFF = 0x13
 local workerThreadHandle = nil
 local modbusThreadHandle = nil
 local mengirimThreadHandle = nil
+local transaksiThreadHandle = nil
+local timerThreadHandle = nil
 
 local serHandle = nil         -- handle sending and receiving data over serial port.
 local serQ                    -- event queue associated with the RS232 serial port.
@@ -260,6 +271,17 @@ local mod_threshold
 
 -- -------------------------------------------------------------------------
 
+local function extract_field(s_string)
+    local s_field
+    local first_p,second_p = string.find(s_string,";",1)
+    if tonumber(first_p) ~= nil and tonumber(first_p) &gt; 1 then
+        if tonumber(string.sub(s_string, 1, second_p-1) ) ~= nil then
+            s_field = string.sub(s_string, 1, second_p-1)
+            return s_field, string.sub(s_string, second_p + 1 , string.len(s_string))
+        end
+    end
+    return false, s_string
+end
 
 local function fillParameters(pName, conf_params)
 -- -------------------------------------------------------------------------
@@ -292,7 +314,7 @@ local mb_threshold = nil
 local mb_value = nil
 local mb_times = nil
 
---    print("Data: ", conf_params)
+    --print("Data: ", conf_params)
     
      -- don't use "while extract_field(conf_params) == true do", doesn't mean the same
      -- due to configuration of function "extract_field()"
@@ -337,7 +359,7 @@ local mb_times = nil
             --[
             --if tonumber(mb_bit) ~= 1 and tonumber(mb_bit) ~= 2 then
             if tonumber(mb_bit) &gt; 480 then
-                trace("ERROR: wrong value for 'bits' (must be 1 or 2)", os.date())
+                --trace("ERROR: wrong value for 'bits' (must be 1 or 2)", os.date())
                 print("ERROR 5A")
                 return false                
             end
@@ -420,12 +442,15 @@ local mb_times = nil
     end
     
     if tonumber(mb_rw) == 0 then
+        mb_threshold = 0
+        --[[
         --if tonumber(mb_bit) ~= 1 and tonumber(mb_bit) ~= 2 then
         if tonumber(mb_threshold) == nil then
             --trace("ERROR: missing parameter or delimitation for 'threshold' ", os.date())
             print("ERROR: mb_threshold NIL")
             return false
         end
+        --]]
     else
         --[
         if tonumber(mb_dir) == nil then
@@ -453,7 +478,7 @@ local mb_times = nil
         return false
     end
     
-    --print("Adr:",mb_addr,", reg:",mb_reg,", base:",mb_base,", bit: ",mb_bit)
+    print("Adr:",mb_addr,", reg:",mb_reg,", base:",mb_base,", bit: ",mb_bit)
     
     return true, mb_addr, mb_reg, mb_base, mb_rw, mb_bit, mb_dir, mb_threshold, mb_value, mb_times
 
@@ -613,7 +638,7 @@ local function parsing_cmd_modbus(no , nama, params)
     local tf, mb_addr, mb_reg, mb_base, mb_rw, mb_bit, mb_pin, mb_threshold, mb_value, mb_times = fillParameters(nama, params)
     print ("alm: ", mb_addr,", reg: ", mb_reg, ", base: ",mb_base, ", rw: ",mb_rw, ", no: ", no, ", mb_bit: ", mb_bit, ", pin: ", mb_pin)
     
-    --[
+    --[[
     if tf then
         if tonumber(mb_rw) == 0 and string.sub(mb_reg, 1,1) == "4" then  -- rx:0, reg:4xxxx
             --print(" Read holding register(s):", no, ", addr: ", mb_addr, ", reg: ", tonumber(string.sub(mb_reg, 2))) --
@@ -656,7 +681,7 @@ local function loop_properti()
 --            print (i .. " &gt; " .. nPin)
             propField = svcmgr.getPropDef(128,nPin)
             property_value = svcmgr.getProp(128, nPin)
---            print ("i:", i, ", nPin: ", nPin,", nama: ", propField.name, ": ", property_value)
+            --print ("i:", i, ", nPin: ", nPin,", nama: ", propField.name, ": ", property_value)
             parsing_cmd_modbus(nPin, propField.name, property_value)
             sched.delay(1)      -- kasih delay biar bisa bernafas jon. X/10 detik
         --]]
@@ -739,6 +764,7 @@ local longi
 local alti
 local headi
 local speedi
+local waktui
 local DataAda = nil
 
 --[
@@ -775,7 +801,7 @@ local function bacabaca()
     --
     pro = svcmgr.getProp(20,2)
     if pro==false then
-    --    print("loop: ", merdeka, " FixValid loop: ", pro)
+        --print("loop: ", merdeka, " FixValid mati: ", pro)
     end
     
     if svcmgr.getProp(20,2) then
@@ -788,6 +814,7 @@ local function bacabaca()
         alti   = svcmgr.getProp(20,8)
         speedi = svcmgr.getProp(20,9)/5.4
         headi  = svcmgr.getProp(20,10)/10
+        waktui = svcmgr.getProp(20,11)
         --print(string.format("lat     = %d (%3.5f degrees)", lati, lati*6/360000))
         --print(string.format("lon     = %d (%3.5f degrees)", longi, longi*6/360000))
         --print(string.format("Alti    = %d", alti))
@@ -798,12 +825,13 @@ local function bacabaca()
         --print(string.format("fixAge = %d ", svcmgr.getProp(20,12)) )
 
         DataAda = 1
-        
+        --[
         simpan_float2uint32(lati,   128, 131)
         simpan_float2uint32(longi,  128, 132)
         simpan_float2uint32(headi,  128, 133)
         simpan_float2uint32(speedi, 128, 134)
-        
+        simpan_float2uint32(waktui, 128, 135)
+        --]]
         
         
         --pro = svcmgr.setProp(128, 131, (-384177) )
@@ -955,8 +983,8 @@ end
 
 local function modbus_init()
     if OpenConnection() then
-        print(_NAME, " MODBUS sukasuka connection open. ", os.date())   
-        mb485Q = sched.createEventQ(1,'_MODBUS', modbushandle)
+        --print(_NAME, " MODBUS sukasuka connection open. ", os.date())   
+        --mb485Q = sched.createEventQ(1,'_MODBUS', modbushandle)
         return true
     else
         print (_NAME, "MODBUS GAGAL !!!!!!!")
@@ -1152,7 +1180,7 @@ local function serial_init()
     --svc.shell.detach()
     -- wait a bit for the serial port to be released.
     sched.delay(1)
-    svcmgr.setProp(22, 21, 7)                   -- Baud RS485: 115200 [7]
+    --svcmgr.setProp(22, 21, 7)                   -- Baud RS485: 115200 [7]
     local handle, err = svc.rs232.connect('rs485')
     if handle then
         serHandle = handle
@@ -1171,9 +1199,17 @@ local function serial_init()
 end
 
 
+local function data_modbus()
+    local mb = nil
+    mb = modbus_init()
+    if mb then
+        loop_properti()
+        modbushandle:close()
+        print("---&gt; modbus tutup")
+    end
+end
 
-
-local function serial_req()
+local function data_serial()
     --local tulis = "serial req thread\n"
     --serHandle.writestr(serHandle, tulis)
     --isWaitingData = nil
@@ -1181,7 +1217,7 @@ local function serial_req()
     local lSer = 0
     local hser = nil
     
-    while true do       -- kirim multifile ke GPRS 
+    --while true do       -- kirim multifile ke GPRS 
         local ser = serial_init()
         sched.delay(2)
         
@@ -1194,7 +1230,7 @@ local function serial_req()
                 if loopK==1 or hser==0 then -- ambil data file pertama
                     local data = { 0x11, 0x25, 0x00, 0x00, 0x00, 0x00 } -- data with XON in middle.
                     lSer = lSer+1
-                    --print("\nkirim awal data: ",lSer)
+                    print("\nkirim awal data: ",lSer)
                     serHandle:writeframe(data)
                     lenFile  = 0
                     iparFile = 0
@@ -1256,9 +1292,46 @@ local function serial_req()
         sched.delay(5)
         svc.serial.disconnect(serHandle)
         sched.delay(5)
-    end
-    
+    --end
+    --]]
 end
+
+
+local flagTimer = nil
+
+local function timer_req()
+    local perjam = 0
+    while true do       -- kirim multifile ke GPRS 
+        flagTimer = 1
+        perjam = perjam + 1
+        if perjam == 2 then             -- 2 menit: 1jam = 60menit
+            print("====&gt; KIRIM DATA VIA SATELIT: ",os.date(),"\r\n")
+            perjam = 0
+        end
+        sched.delay(DATA_DELAY)     -- cek permenit = 600
+        
+    end
+end
+
+
+local function transaksi_req()
+    sched.delay(WORKER_THREAD_DELAY)
+    while true do       -- kirim multifile ke GPRS 
+        if svc.position.requestFix("3D", 5, 5) then
+            bacabaca()
+        end
+        if flagTimer == 1 then            
+            flagTimer = 0
+            print("---&gt; tendang data ke monita ",os.date()," ", waktui)
+            
+            data_modbus()
+            data_serial()
+        end
+        sched.delay(10)         -- 10 = 1 detik
+        
+    end
+end
+
 
 function data_lokasi()
     if DataAda == 1 then
@@ -1341,7 +1414,7 @@ local function gprs_init()
     svcmgr.setProp(29, 5, "4.2.2.1")            -- DNS1
     --svcmgr.setProp(29, 6, "")                   -- DNS2
     svcmgr.setProp(29,50, "118.96.107.182")     -- server
-    svcmgr.setProp(29,51, "1234")             -- port
+    svcmgr.setProp(29,51, "8888")             -- port
     
     
     local dt = nil
@@ -1385,9 +1458,17 @@ function entry()
     
     merdeka = 0
     print ("masuk thread worker")
-    modbusThreadHandle = sched.spawn("worker_thread", workerThread)
+    --modbusThreadHandle = sched.spawn("worker_thread", workerThread)
     
     gprs_init()
+    
+    baca_properti()
+    transaksiThreadHandle = sched.spawn("transaksi_thread", transaksi_req)
+    sched.delay(1)
+    
+    timerThreadHandle = sched.spawn("timer_thread", timer_req)
+    
+    
     --[[
     local mb = modbus_init()
     if mb then 
@@ -1408,7 +1489,7 @@ function entry()
     end
     --]]
     
-    serialThreadHandle = sched.spawn("serial_thread", serial_req)
+    --serialThreadHandle = sched.spawn("serial_thread", serial_req)
     --sched.delay(1)
     
     
@@ -1452,17 +1533,6 @@ end
 
 
 
-local function extract_field(s_string)
-    local s_field
-    local first_p,second_p = string.find(s_string,";",1)
-    if tonumber(first_p) ~= nil and tonumber(first_p) &gt; 1 then
-        if tonumber(string.sub(s_string, 1, second_p-1) ) ~= nil then
-            s_field = string.sub(s_string, 1, second_p-1)
-            return s_field, string.sub(s_string, second_p + 1 , string.len(s_string))
-        end
-    end
-    return false, s_string
-end
 
 
 
@@ -1648,12 +1718,6 @@ end
  trace("value (W) to write : ",mod_value)
  trace("times (W) to write : ",mod_times)
 --]]</Source>
-        </SourceFile>
-        <SourceFile>
-          <Name>serial.lua</Name>
-          <Source>
-
-</Source>
         </SourceFile>
       </SourceFiles>
     </Service>
