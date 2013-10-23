@@ -63,7 +63,7 @@ Format:
      &lt;direction(0-5)&gt; ; 
      &lt;threshold&gt; ;
 </Description>
-          <PIN>3</PIN>
+          <PIN>253</PIN>
           <Value>10;41022;0;0;1;151;70000;</Value>
         </Property>
         <Property xsi:type="StringProperty">
@@ -76,7 +76,7 @@ Format:
      &lt;read/write = 1 &gt;;
      &lt;bits = jml data&gt; ; 
      &lt;pin data&gt; ;</Description>
-          <PIN>4</PIN>
+          <PIN>254</PIN>
           <Value>17;41029;0;1;1;151;000;</Value>
         </Property>
         <Property xsi:type="SignedIntProperty">
@@ -1265,7 +1265,7 @@ local function data_serial()
                 if loopK==1 or hser==0 then -- ambil data file pertama
                     local data = { 0x12, 0x25, 0x00, 0x00, 0x00, 0x00 } -- data with XON in middle.
                     lSer = lSer+1
-                    print("\nkirim awal data: ",lSer)
+                    print("kirim awal data: ",lSer)
                     serHandle:writeframe(data)
                     lenFile  = 0
                     iparFile = 0
@@ -1349,8 +1349,11 @@ local function kirim_req()
             awalun = false           
         end
         sched.delay(KURANG_DELAY)
-        data_modbus()
+        --
     end
+    data_modbus()
+    sched.delay(KURANG_DELAY)
+    
     print("Kirim Setiap 1 jam")
     --while true do
     --    sched.delay(MENGIRIM_THREAD_DELAY-KURANG_DELAY)
@@ -1378,6 +1381,7 @@ end
 
 local function transaksi_req()
     kirim_req()
+    kirim_data_satelit()            -- kirim dulu diawal modul power ON 
 
     sched.delay(WORKER_THREAD_DELAY)
     while true do       -- kirim multifile ke GPRS 
@@ -1390,7 +1394,7 @@ local function transaksi_req()
             sched.delay(2)
             data_modbus()
             sched.delay(2)
-            --data_serial()
+            data_serial()
         end
         sched.delay(10)         -- 10 = 1 detik
     end
