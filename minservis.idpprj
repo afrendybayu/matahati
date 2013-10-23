@@ -7,8 +7,8 @@
   </FileVersion>
   <SDKVersion>
     <Major>1</Major>
-    <Minor>1</Minor>
-    <Patch>1</Patch>
+    <Minor>4</Minor>
+    <Patch>4</Patch>
   </SDKVersion>
   <Name>New Project</Name>
   <Services>
@@ -165,25 +165,30 @@ Format:
           <Name>PesanCijolang</Name>
           <MIN>1</MIN>
           <Fields>
-            <Field xsi:type="SignedIntField">
+            <Field xsi:type="PropertyField">
               <Name>waktux</Name>
-              <Size>32</Size>
+              <SIN>128</SIN>
+              <PIN>135</PIN>
             </Field>
-            <Field xsi:type="SignedIntField">
+            <Field xsi:type="PropertyField">
               <Name>latx</Name>
-              <Size>32</Size>
+              <SIN>128</SIN>
+              <PIN>131</PIN>
             </Field>
-            <Field xsi:type="SignedIntField">
+            <Field xsi:type="PropertyField">
               <Name>longx</Name>
-              <Size>32</Size>
+              <SIN>128</SIN>
+              <PIN>132</PIN>
             </Field>
-            <Field xsi:type="SignedIntField">
+            <Field xsi:type="PropertyField">
               <Name>speedx</Name>
-              <Size>32</Size>
+              <SIN>128</SIN>
+              <PIN>134</PIN>
             </Field>
-            <Field xsi:type="SignedIntField">
+            <Field xsi:type="PropertyField">
               <Name>headx</Name>
-              <Size>32</Size>
+              <SIN>128</SIN>
+              <PIN>133</PIN>
             </Field>
           </Fields>
         </Message>
@@ -211,12 +216,12 @@ _VERSION = "1.0.0"
 -- Module Constants
 --
 local PERIODIC_ACTION_DELAY = 50        -- x/10 detik
-local COMMAND_TIMEOUT  = 5    -- Timeout of a modbus query/write function (in secs)
+local COMMAND_TIMEOUT  = 2    -- Timeout of a modbus query/write function (in secs)
 local COMMAND_INTERVAL = 1   -- Time between register queries (in secs)
 --local WORKER_THREAD_DELAY = 100     -- 100=10detik, klo 100*6*60=36000-5=1jam
 local MENGIRIM_THREAD_DELAY = 36000
 local KURANG_DELAY = 50
-local WORKER_THREAD_DELAY = 100
+local WORKER_THREAD_DELAY = 100         -- 100/10 = 10 detik
 local DATA_DELAY = 600
 
 
@@ -478,7 +483,7 @@ local mb_times = nil
         return false
     end
     
-    print("Adr:",mb_addr,", reg:",mb_reg,", base:",mb_base,", bit: ",mb_bit)
+    --print("Adr:",mb_addr,", reg:",mb_reg,", base:",mb_base,", bit: ",mb_bit)
     
     return true, mb_addr, mb_reg, mb_base, mb_rw, mb_bit, mb_dir, mb_threshold, mb_value, mb_times
 
@@ -500,6 +505,18 @@ local function simpan_float2uint32(float, sin , pin)
     --print("float: ",a)
     bufd:clear()
     
+end
+
+local function u32tofloat(nilai)
+    local bufd = nil
+    local p = nil
+    local fl = nil
+    
+    bufd = sys.buffer.create(4)
+    p = bufd:addInt32(nilai, false, false)
+    fl = bufd:getFloat()
+    
+    return fl
 end
 
 --[
@@ -554,25 +571,28 @@ end
 local function writeHoldingRegister(pin, idslave, register, base, jml, tPin)
     
     local buf = sys.buffer.create(4*jml)
-    print("PIN: ", pin, ", reg: ", register, ", jml: ", jml,", tPin: ", tPin)
+    --print("PIN: ", pin, ", reg: ", register, ", jml: ", jml,", tPin: ", tPin)
     
     for i=1, jml do
         buf:addInt32(svcmgr.getProp(128, (tPin+i-1)), false, false)
-        print("data: ", svcmgr.getProp(128, (tPin+i-1)))
+        --print("data: ", svcmgr.getProp(128, (tPin+i-1)))
     end
     
     local bytes, numBits = buf:getString()
     local result, error = modbushandle:writeregs(idslave, register - base, bytes, COMMAND_TIMEOUT * 1000)
     local q, event, success, error, count = mb485Q:wait(-1)
 
+    --print(" ---- setelah kirim reg q:",q,", event:",event,",success:",success,",error:",error,",count:",count,"----")
+
     --local data = {}
     --[
-    if success then 
-        print("+++++ Sukses writeHoldingReg")
+    if (success==true) then 
+        --print("+++++ Sukses writeHoldingReg")
         return true
     else
         --trace("ERROR: ", error, ". Function writereg(). Address (", mod_address,") ",os.date())
-        print ("ERROR: ",error,", id: ", idslave, ", reg: ", register - base, ", tpin: ",tpin)
+        --print("error: ",error)
+        print ("ERROR: ",error,", id: ", idslave, ", reg: ", register - base, ", tpin: ",tPin)
         return false
     end
     --]]
@@ -580,7 +600,7 @@ end
 
 
 local function readHoldingRegister(pin, idslave, register, base, bit, tpin)
-    print ("idslave: ", idslave, ", reg: ", register - base, ", modbit: ",bit,", pin: ",pin,", tpin: ",tpin)
+    --print ("idslave: ", idslave, ", reg: ", register - base, ", modbit: ",bit,", pin: ",pin,", tpin: ",tpin)
     
     --[
     local result, error = modbushandle:readholdingregs(idslave, register - base, bit, COMMAND_TIMEOUT*1000)
@@ -589,7 +609,7 @@ local function readHoldingRegister(pin, idslave, register, base, bit, tpin)
     local simpan
     --[
     if success then
-        print ("sukses !! terima data, count: ", count)
+        --print ("sukses !! terima data, count: ", count)
         local buf = sys.buffer.create(data)
         if tonumber(bit) == 1 then
             extracted_value = buf:getInt16()
@@ -611,13 +631,13 @@ local function readHoldingRegister(pin, idslave, register, base, bit, tpin)
         -- Save new content read in property modbusDataXX :
         --local eror = svcmgr.setProp(128, pin + 100 , extracted_value )
         if error == nil then
-            print ("ERROR: ",error,", id: ", idslave, ", reg: ", register - base, "pin: ", pin)
+            print ("ERROR: ",error,", id: ", idslave, ", reg: ", register - base, ", pin: ", pin)
          end
         
         return true, extracted_value
     else
         --trace("ERROR: ", error, ". Function readholdingregs(). Address (", register,") ",os.date())
-        print("GAGAL terima modbus: ".. error)
+        print("GAGAL terima modbus: ",error,", id: ", idslave, ", reg: ", register - base, ", pin: ", tpin)
         return false, nil
     end   
     --]
@@ -636,7 +656,7 @@ end
 local function parsing_cmd_modbus(no , nama, params)
     --print("___ function parsing: ", nama, ": ", params)
     local tf, mb_addr, mb_reg, mb_base, mb_rw, mb_bit, mb_pin, mb_threshold, mb_value, mb_times = fillParameters(nama, params)
-    print ("alm: ", mb_addr,", reg: ", mb_reg, ", base: ",mb_base, ", rw: ",mb_rw, ", no: ", no, ", mb_bit: ", mb_bit, ", pin: ", mb_pin)
+    --print ("alm: ", mb_addr,", reg: ", mb_reg, ", base: ",mb_base, ", rw: ",mb_rw, ", no: ", no, ", mb_bit: ", mb_bit, ", pin: ", mb_pin)
     
     --[
     if tf then
@@ -654,7 +674,7 @@ local function parsing_cmd_modbus(no , nama, params)
             end
         elseif tonumber(mb_rw) == 1 and string.sub(mb_reg, 1,1) == "4" then   
             -- Write in a modbus holding register ---
-            --print ("alm: ", mb_addr,", reg: ", mb_reg, ", base: ",mb_base, ", rw: ",mb_rw, ", no: ", no)
+            --print (" WriteHoldingRegister ------ alm: ", mb_addr,", reg: ", mb_reg, ", base: ",mb_base, ", rw: ",mb_rw, ", no: ", no)
             writeHoldingRegister(no, mb_addr, tonumber(string.sub(mb_reg, 2)), mb_base, mb_bit, mb_pin)
             --if tonumber(mb_times) &gt; 0 then
             --    WritingLoop("HOLDING_REG", nPin, tonumber(string.sub(mod_address, 2))) -- Take out the first address caracter                     
@@ -678,12 +698,13 @@ local function loop_properti()
         --if nPin&lt;=2 then
         --if nPin&lt;=1 then
         --[
---            print (i .. " &gt; " .. nPin)
+            --print (i .. " &gt; " .. nPin)
             propField = svcmgr.getPropDef(128,nPin)
             property_value = svcmgr.getProp(128, nPin)
             --print ("i:", i, ", nPin: ", nPin,", nama: ", propField.name, ": ", property_value)
             parsing_cmd_modbus(nPin, propField.name, property_value)
             sched.delay(1)      -- kasih delay biar bisa bernafas jon. X/10 detik
+            --print ("=========&gt; lanjut lagi")
         --]]
         end
     end
@@ -725,7 +746,7 @@ local function OpenConnection()
        print(_NAME, " MODBUS GAGAL. ")
    else
        modbushandle = handle
-       print(_NAME, " MODBUS BERHASIL ++++. ")
+       --print(_NAME, " MODBUS BERHASIL ++++. ")
    end
  
    return not (modbushandle == nil)
@@ -759,20 +780,46 @@ local function baca_prop20()
 end
 
 local merdeka
-local lati
-local longi
+local lati, lats
+local longi, longs
 local alti
-local headi
-local speedi
+local headi, heads
+local speedi, speeds
 local waktui
 local DataAda = nil
 
 --[
 local function kirim_data_satelit()
-    local antrix
-    local errorx
+    local antrix = 111
+    local errorx = 222
+
+
+    
+    
+    --local fields  = { waktux=waktui,latx=lats,longx=longs,speedx=speeds,headx=heads }
+    --local fields  = { latx=lati,longx=longi,speedx=speedi,headx=headi }
+    --local fields  = { waktux,latx,longx,speedx,headx }
+    --local fields  = { waktux:addInt32(waktui, false, false),latx:addFloat(lati, false, false),longx:addFloat(langi, false, false),speedx:addFloat(speedi, false, false),headx:addFloat(headi, false, false) }
+    --fields.waktux = 0x1234
+    --fields.latx = 0x1111
+    --fields.longx = 0x2222
+    --fields.speedx = 0x3333
+    --fields.headx = 0x4444
     print("Kirim ke satelit")
-    antrix, errorx = messageHandle:send(1, {latx=lati,longx=longi,speedx=speedi,headx=headi})
+    --fields.waktux = 0x11
+    --fields.latx:addFloat(lati, false, false)
+    --fields.longx:addFloat(langi, false, false)
+    --fields.speedx:addFloat(speedi, false, false)
+    --fields.headx:addFloat(headi, false, false)
+    
+    local options = { priority=1, send=true, log=true, retry=true, retryInterval=15, transports={{svc.idp.TRANSPORT_ID, 1}} }   -- lifetime=60, 
+    
+    
+    --msgHdl:send(1, myFields, {transports={{svc.gprs.TRANSPORT_JSON, 2}, {svc.idp.TRANSPORT_ID, 10}}})
+    --antrix, errorx = messageHandle:send(1, {latx=lati,longx=longi,speedx=speedi,headx=headi})
+    --antrix, errorx = messageHandle:send(1, fields, {transports={{svc.idp.TRANSPORT_ID, 10}}})
+    
+    --antrix, errorx = messageHandle:send(1, {}, options)
     print(string.format("antri: %d", antrix))
     if antrix == 0 then
         print(string.format("error: %s", errorx))
@@ -814,6 +861,12 @@ local function bacabaca()
         alti   = svcmgr.getProp(20,8)
         speedi = svcmgr.getProp(20,9)/5.4
         headi  = svcmgr.getProp(20,10)/10
+        
+        lats   = svcmgr.getProp(20,6)
+        longs  = svcmgr.getProp(20,7)
+        speeds = svcmgr.getProp(20,9)
+        heads  = svcmgr.getProp(20,10)
+        
         waktui = svcmgr.getProp(20,11)
         --print(string.format("lat     = %d (%3.5f degrees)", lati, lati*6/360000))
         --print(string.format("lon     = %d (%3.5f degrees)", longi, longi*6/360000))
@@ -877,25 +930,7 @@ local function bacabaca()
     
 end
 
-local function kirim_req()
-    print ("masuk fungsi kirim_req")
-    local awalun = true
-    while awalun do
-        print("Coba dulu 5 detik")
-        if DataAda == 1 then
-            --kirim_data_satelit()
-            awalun = false           
-        end
-        sched.delay(KURANG_DELAY)
-    end
-    print("Kirim Setiap 1 jam")
-    while true do
-        sched.delay(MENGIRIM_THREAD_DELAY-KURANG_DELAY)
-        --if DataAda == 1 then
-            kirim_data_satelit()      
-        --end
-    end
-end
+
 
 local function workerThread()
     local options = {priority=4}
@@ -1205,7 +1240,7 @@ local function data_modbus()
     if mb then
         loop_properti()
         modbushandle:close()
-        print("---&gt; modbus tutup")
+        --print("---&gt; modbus tutup")
     end
 end
 
@@ -1299,6 +1334,32 @@ end
 
 local flagTimer = nil
 
+local function kirim_req()
+    print ("masuk fungsi kirim_req")
+    local awalun = true
+    while awalun do
+        print("Coba dulu 5 detik")
+        
+        if svc.position.requestFix("3D", 5, 5) then
+            bacabaca()
+        end
+        
+        if DataAda == 1 then
+            --kirim_data_satelit()
+            awalun = false           
+        end
+        sched.delay(KURANG_DELAY)
+        data_modbus()
+    end
+    print("Kirim Setiap 1 jam")
+    --while true do
+    --    sched.delay(MENGIRIM_THREAD_DELAY-KURANG_DELAY)
+        --if DataAda == 1 then
+        --    kirim_data_satelit()      
+        --end
+    --end
+end
+
 local function timer_req()
     local perjam = 0
     while true do       -- kirim multifile ke GPRS 
@@ -1306,6 +1367,7 @@ local function timer_req()
         perjam = perjam + 1
         if perjam == 2 then             -- 2 menit: 1jam = 60menit
             print("====&gt; KIRIM DATA VIA SATELIT: ",os.date(),"\r\n")
+            kirim_data_satelit()
             perjam = 0
         end
         sched.delay(DATA_DELAY)     -- cek permenit = 600
@@ -1315,6 +1377,8 @@ end
 
 
 local function transaksi_req()
+    kirim_req()
+
     sched.delay(WORKER_THREAD_DELAY)
     while true do       -- kirim multifile ke GPRS 
         if svc.position.requestFix("3D", 5, 5) then
@@ -1322,11 +1386,11 @@ local function transaksi_req()
         end
         if flagTimer == 1 then            
             flagTimer = 0
-            print("---&gt; tendang data ke monita ",os.date()," ", waktui)
+            --print("---&gt; tendang data ke monita ",os.date()," ", waktui)
             sched.delay(2)
             data_modbus()
             sched.delay(2)
-            data_serial()
+            --data_serial()
         end
         sched.delay(10)         -- 10 = 1 detik
     end
@@ -1407,14 +1471,17 @@ end
 
 --[
 local function gprs_init()
+    svcmgr.setProp(29,51, "8888")             -- port
     svcmgr.setProp(29, 1, "")                   -- PIN
     svcmgr.setProp(29, 2, "telkomsel")          -- APN
     svcmgr.setProp(29, 3, "wap")                -- username
     svcmgr.setProp(29, 4, "wap123")             -- password
     svcmgr.setProp(29, 5, "4.2.2.1")            -- DNS1
     --svcmgr.setProp(29, 6, "")                   -- DNS2
-    svcmgr.setProp(29,50, "118.96.107.182")     -- server
+    svcmgr.setProp(29,50, "http://118.96.107.182")     -- server
     svcmgr.setProp(29,51, "8888")             -- port
+    svcmgr.setProp(29,52, "http://118.96.107.182")     -- server
+    svcmgr.setProp(29,53, "8888")             -- port
     
     
     local dt = nil
@@ -1527,200 +1594,14 @@ end
 
 </Source>
         </SourceFile>
-        <SourceFile>
-          <Name>modbus.lua</Name>
-          <Source>
-
-
-
-
-
-
---[[
-module(..., package.seeall)
-
-local function extract_field(s_string)
-    local s_field
-    local first_p,second_p = string.find(s_string,";",1)
-    if tonumber(first_p) ~= nil and tonumber(first_p) &gt; 1 then
-        if tonumber(string.sub(s_string, 1, second_p-1) ) ~= nil then
-            s_field = string.sub(s_string, 1, second_p-1)
-            return s_field, string.sub(s_string, second_p + 1 , string.len(s_string))
-        end
-    end
-    return false, s_string
-end
-
-local function fillParameters(pName, conf_params)
--- -------------------------------------------------------------------------
--- Fill variables from property configurationXX :
---  mod_address
---  mod_base
---  mod_read_write  = 0 for "read" 1 for "write"
---
--- if mod_read_write = 0 function will fill the following parameters:
---       mod_bits
---       mod_direction
---       mod_threshold
---       These 6 variables are going to be used to query a modbus address
---       Value read will be stored in modbusDataXX  ( 16 or 32 bits )
---   
--- if mod_read_write = 1 function will fill the following parameters:
---       mod_value
---       mod_times
---       These 5 variables are going to be used to write in a modbus address
---       Value to write will be taken from  modbusDataXX (16 bits only)
--- -------------------------------------------------------------------------
-local val_counter = 1
- 
-mod_address = nil
-mod_register = nil
-mod_base = nil
-mod_read_write = nil
-
-mod_bits = nil
-mod_direction = nil
-mod_threshold = nil
-
-mod_value = nil
-mod_times = nil
-
-
- -- don't use "while extract_field(conf_params) == true do", doesn't mean the same
- -- due to configuration of function "extract_field()"
-while extract_field(conf_params) ~= false do 
-    if val_counter == 1 then
-        mod_address, conf_params = extract_field(conf_params)
-        if tonumber(mod_address) == nil then
-            trace("ERROR: invalid value for 'address' ", os.date())
-        return false
-    end
-    elseif val_counter == 2 then
-        mod_base, conf_params = extract_field(conf_params)
-        if tonumber(mod_base) ~= 0 and tonumber(mod_base) ~= 1 then
-            trace("ERROR: wrong value for 'base' (must be 0 or 1) ", os.date())
-        return false
-    end
-    elseif val_counter == 3 then
-        mod_read_write, conf_params = extract_field(conf_params)
-        if tonumber(mod_read_write) ~= 0 and tonumber(mod_read_write) ~= 1 then
-            trace("ERROR: wrong value for 'read/write' (must be 0 or 1) ", os.date())
-        return false
-    end
-    elseif val_counter == 4 then
-        if tonumber(mod_read_write) == 0 then
-            mod_bits, conf_params = extract_field(conf_params)
-            if tonumber(mod_bits) ~= 1 and tonumber(mod_bits) ~= 2 then
-                trace("ERROR: wrong value for 'bits' (must be 1 or 2)", os.date())
-            return false
-        end
-        else
-            mod_value, conf_params = extract_field(conf_params)
-            if tonumber(mod_value) == nil or
-            not (tonumber(mod_value) &gt;= 0 and tonumber(mod_value) &lt;= 65535) then
-                trace("ERROR: invalid value for 'value' (must be between 0 and 65535) ", os.date())
-                return false
-            end
-        end
-    elseif val_counter == 5 then
-        if tonumber(mod_read_write) == 0 then
-            mod_direction, conf_params = extract_field(conf_params)
-        if tonumber(mod_direction) == nil or
-        not (tonumber(mod_direction) &gt;= 0 and tonumber(mod_direction) &lt;= 5) then
-            trace("ERROR: invalid value for 'direction' (must be between 1 and 5) ", os.date())
-            return false
-        end
-    else
-        mod_times, conf_params = extract_field(conf_params)
-        if tonumber(mod_times) == nil then
-            trace("ERROR: invalid value for 'times' ", os.date())
-            return false
-        end
-        break
-    end
-    elseif val_counter == 6 then
-        if tonumber(mod_read_write) == 0 then
-            mod_threshold, conf_params = extract_field(conf_params)
-            if tonumber(mod_threshold) == nil then
-                trace("ERROR: invalid value for 'threshold' ", os.date())
-                return false
-            end
-            break
-        end
-    end
-    val_counter = val_counter + 1
- 
- end
- 
- if tonumber(mod_address) == nil then
-  trace("ERROR: missing parameter or delimitation for 'address' ", os.date())
-  return false
- elseif string.len(mod_address) ~= 5 then
-  trace("ERROR: wrong value for 'address', expecting 5 digits ",mod_address, " ", os.date())
-  return false
- end
- 
- if tonumber(mod_base) ~= 0 and tonumber(mod_base) ~= 1 then
-  trace("ERROR: missing parameter or delimitation for 'base' ", os.date())
-  return false
- end
- 
- if tonumber(mod_read_write) ~= 0 and tonumber(mod_read_write) ~= 1 then
-  trace("ERROR: missing parameter or delimitation for 'read/write' ", os.date())
-  return false
- end
- 
- if tonumber(mod_read_write) == 0 then
-  if tonumber(mod_bits) ~= 1 and tonumber(mod_bits) ~= 2 then
-   trace("ERROR: missing parameter or delimitation for 'bits' ", os.date())
-   return false
-  end
-  if tonumber(mod_direction) == nil or
-  not (tonumber(mod_direction) &gt;= 0 and tonumber(mod_direction) &lt;= 5) then
-   trace("ERROR: missing parameter or delimitation for 'direction' ", os.date())
-   return false
-  end
-  if tonumber(mod_threshold) == nil then
-   trace("ERROR: missing parameter or delimitation for 'threshold' ", os.date())
-   return false
-  end
- else
-  if tonumber(mod_value) == nil then
-   trace("ERROR: missing parameter or delimitation for 'value' ", os.date())
-   return false
-  end
-  if tonumber(mod_times) == nil then
-   trace("ERROR: missing parameter or delimitation for 'times' ", os.date())
-   return false
-  end
- end
-
-
-
-
-
- return true
-
-
-end
---]]
-
- --[[
- -- For debugging purposes use :
- trace("address : ", mod_address)
- trace("base : ", mod_base)
- trace("read (0) or write(1) : ",mod_read_write)
-
- trace("16bits(1) or 32 bits(2) : ",mod_bits)
- trace("direction (R) (0: no comparison, 1: &gt;, 2: &lt;, 3: =, 4: &lt;&gt;, 5: any change ): ", mod_direction)
- trace("threshold (R) (to compare with register read) : ", mod_threshold)
-
- trace("value (W) to write : ",mod_value)
- trace("times (W) to write : ",mod_times)
---]]</Source>
-        </SourceFile>
       </SourceFiles>
     </Service>
   </Services>
-  <PropertyValues />
+  <PropertyValues>
+    <PropertyValue xsi:type="BooleanPropertyValue">
+      <SIN>19</SIN>
+      <PIN>1</PIN>
+      <Value>false</Value>
+    </PropertyValue>
+  </PropertyValues>
 </Project>
