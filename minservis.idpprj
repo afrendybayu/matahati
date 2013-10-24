@@ -21,6 +21,11 @@
           <PIN>201</PIN>
           <Value>service started</Value>
         </Property>
+        <Property xsi:type="SignedIntProperty">
+          <Name>idmonita</Name>
+          <PIN>202</PIN>
+          <Value>17</Value>
+        </Property>
         <Property xsi:type="StringProperty">
           <Name>mb1_monita_data_req</Name>
           <Description>Read a modbus register and compares: 
@@ -52,7 +57,12 @@ Format:
           <Value>17;41021;0;1;5;131;000;</Value>
         </Property>
         <Property xsi:type="StringProperty">
-          <Name>mb3_bat_req</Name>
+          <Name>mb3_monita_bat_req</Name>
+          <PIN>3</PIN>
+          <Value>17;41017;0;0;2;151;0000</Value>
+        </Property>
+        <Property xsi:type="StringProperty">
+          <Name>mb253_bat_req</Name>
           <Description>Read a modbus register and compares: 
 
 Format: 
@@ -67,7 +77,7 @@ Format:
           <Value>10;41022;0;0;1;151;70000;</Value>
         </Property>
         <Property xsi:type="StringProperty">
-          <Name>mb4_monita_bat_send</Name>
+          <Name>mb254_monita_bat_send</Name>
           <Description>Write a modbus register and compares: 
 Format: 
      &lt;idslave&gt;
@@ -158,6 +168,10 @@ Format:
         <Property xsi:type="SignedIntProperty">
           <Name>mb51_bat_teg</Name>
           <PIN>151</PIN>
+        </Property>
+        <Property xsi:type="SignedIntProperty">
+          <Name>mb52_chg_teg</Name>
+          <PIN>152</PIN>
         </Property>
       </Properties>
       <ReturnMessages>
@@ -587,7 +601,7 @@ local function writeHoldingRegister(pin, idslave, register, base, jml, tPin)
     --local data = {}
     --[
     if (success==true) then 
-        --print("+++++ Sukses writeHoldingReg")
+        print("+++++ Sukses writeHoldingReg")
         return true
     else
         --trace("ERROR: ", error, ". Function writereg(). Address (", mod_address,") ",os.date())
@@ -609,7 +623,7 @@ local function readHoldingRegister(pin, idslave, register, base, bit, tpin)
     local simpan
     --[
     if success then
-        --print ("sukses !! terima data, count: ", count)
+        print ("sukses !! terima data, count: ", count)
         local buf = sys.buffer.create(data)
         if tonumber(bit) == 1 then
             extracted_value = buf:getInt16()
@@ -1070,6 +1084,7 @@ local namaFile = nil
 local isiFile = nil
 local iparFile = 0
 local tblFile  = { }
+local file64 = nil
 
 
 local function num2strb(num,optionalNumberOfBytes)
@@ -1084,7 +1099,8 @@ local function num2strb(num,optionalNumberOfBytes)
 end
 
 local function file_sukses_dikirim()
-    serHandle:writeframe(0x11,0x26,namaFile)
+    print("-----&gt; sukses terkirim serial file: ", namaFile,"\n")
+    serHandle:writeframe(0x11,0x26,0x00,string.len(namaFile),namaFile)
 end
 
 local function onFrameReceived(success, FrE)
@@ -1097,7 +1113,7 @@ local function onFrameReceived(success, FrE)
         local dt = 0
         --serHandle.writestr(serHandle, frameOrError)
         sukbuf, serbuf = serHandle:getFrame(0,3000)
-        sched.delay(2)
+        --sched.delay(2)
         
         --print("sukses terima: ", sukbuf, ":",serbuf,"&lt;--")        -- ,string.byte(serbuf,1)
         --print("sukses terima: ", sukbuf)        -- ,string.byte(serbuf,1)
@@ -1119,9 +1135,10 @@ local function onFrameReceived(success, FrE)
                     iparFile = cariInt(slen)
                     slen     = string.sub(serbuf, 7, 10)
                     lenFile  = cariInt(slen)
-                    slen     = string.sub(serbuf, 11, 14)
-                    titik    = cariInt(slen)
-                    namaFile = string.sub(serbuf, 15, 26)
+                    --slen     = string.sub(serbuf, 11, 14)
+                    --titik    = cariInt(slen)
+                    --namaFile = string.sub(serbuf, 15, 26)       -- namafile: 20 bytes
+                    namaFile = string.sub(serbuf, 11, 30)       -- namafile: 20 bytes
                     
 
                     if lenFile==iparFile then
@@ -1130,12 +1147,20 @@ local function onFrameReceived(success, FrE)
                     else                    -- tambahkan isi file
                         hasil = 1
                     end
-                    isiFile = string.sub(serbuf, 27, 31)..string.sub(serbuf, -4, -1)
-                    table.insert(tblFile, string.sub(serbuf, 27, -1))
+                    --isiFile = string.sub(serbuf, 27, 31)..string.sub(serbuf, -4, -1)
+                    --table.insert(tblFile, string.sub(serbuf, 31, -1))
                     
-                    print("  isi: ",id," ",cmd," len: ",iparFile,"/",lenFile," titik: ",titik," nama: ",namaFile," isi: ",isiFile)
-                    --isiFile = isiFile..string.sub(serbuf, 27, -1)
-                    --print("pjg File: ",string.len(isiFile))
+                    --print("  isi: ",id," ",cmd," len: ",iparFile,"/",lenFile," titik: ",titik," nama: ",namaFile," isi: ",isiFile)
+                    --print("  isi: ",id," ",cmd," len: ",iparFile,"/",lenFile," nama: ",namaFile,", isi: ",isiFile)
+                    if isiFile==nil then
+                        print("mobileID: ",svcmgr.getProp(27,3))
+                        isiFile = svcmgr.getProp(27,3)..string.sub(serbuf, 31, -1)
+                    else
+                        isiFile = isiFile..string.sub(serbuf, 31, -1)
+                    end
+                    print("pjg File: ",string.len(isiFile))
+                    
+                    
                 end
             end
             --serHandle.writestr(serHandle, "sukses\n")
@@ -1263,7 +1288,7 @@ local function data_serial()
             while loopK&lt;6 do        -- Ambil 1 siklus file
             
                 if loopK==1 or hser==0 then -- ambil data file pertama
-                    local data = { 0x12, 0x25, 0x00, 0x00, 0x00, 0x00 } -- data with XON in middle.
+                    local data = { 0x11, 0x25, 0x00, 0x00, 0x00, 0x00 } -- data with XON in middle.
                     lSer = lSer+1
                     print("kirim awal data: ",lSer)
                     serHandle:writeframe(data)
@@ -1271,12 +1296,13 @@ local function data_serial()
                     iparFile = 0
                     tblFile = {}
                     namaFile = ""
+                    isiFile = nil
                 end
                 
                 if hser==1 then     -- ambil next data file
 
                     --local data = { 0x11, 0x25, 0x14, 0x0e, 0x74, 0x17 } -- data with XON in middle.       
-                    serHandle:writeframe(0x12,0x25,num2strb(iparFile,2),num2strb(lenFile,2),namaFile)
+                    serHandle:writeframe(0x11,0x25,num2strb(iparFile,2),num2strb(lenFile,2),namaFile)
                     --serHandle:writeframe(0x11,0x25,pF,tF,namaFile)
                 end
                 --
@@ -1310,15 +1336,19 @@ local function data_serial()
                 
                 if hser==2 then
                     print("+++++++++++++++++ KIRIM FILE ke SERVER GPRS =================\n")
-                    local fixFile = ""
-                    fixFile = table.concat(tblFile)
+                    --local fixFile = ""
+                    --fixFile = table.concat(tblFile)
                     --print("isi: ",fixFile)
                     --print("jml File: ", #tblFile)
+                    file64 = base64.encode(isiFile)
+                    print("len:", string.len(file64),", isi: \n", file64)
+                    
+                    sched.delay(20)
                     file_sukses_dikirim()
                     break
                 end
                 
-                sched.delay(5)
+                sched.delay(20)
                 loopK = loopK+1
             end
         end
@@ -1475,17 +1505,18 @@ end
 
 --[
 local function gprs_init()
-    svcmgr.setProp(29,51, "8888")             -- port
+    svcmgr.setProp(29,51, "8080")             -- port
     svcmgr.setProp(29, 1, "")                   -- PIN
     svcmgr.setProp(29, 2, "telkomsel")          -- APN
     svcmgr.setProp(29, 3, "wap")                -- username
     svcmgr.setProp(29, 4, "wap123")             -- password
     svcmgr.setProp(29, 5, "4.2.2.1")            -- DNS1
     --svcmgr.setProp(29, 6, "")                   -- DNS2
-    svcmgr.setProp(29,50, "http://118.96.107.182")     -- server
-    svcmgr.setProp(29,51, "8888")             -- port
-    svcmgr.setProp(29,52, "http://118.96.107.182")     -- server
-    svcmgr.setProp(29,53, "8888")             -- port
+    --svcmgr.setProp(29,50, "http://118.96.107.182")     -- server
+    svcmgr.setProp(29,50, "http://66.228.59.51")     -- server
+    svcmgr.setProp(29,51, "8080")             -- port
+    --svcmgr.setProp(29,52, "http://118.96.107.182")     -- server
+    svcmgr.setProp(29,53, "8080")             -- port
     
     
     local dt = nil
