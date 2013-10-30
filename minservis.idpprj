@@ -204,6 +204,102 @@ Format:
               <SIN>128</SIN>
               <PIN>133</PIN>
             </Field>
+            <Field xsi:type="PropertyField">
+              <Name>prop1x</Name>
+              <SIN>128</SIN>
+              <PIN>101</PIN>
+            </Field>
+            <Field xsi:type="PropertyField">
+              <Name>rpm_e1x</Name>
+              <SIN>128</SIN>
+              <PIN>102</PIN>
+            </Field>
+            <Field xsi:type="PropertyField">
+              <Name>runHour1x</Name>
+              <SIN>128</SIN>
+              <PIN>103</PIN>
+            </Field>
+            <Field xsi:type="PropertyField">
+              <Name>flowUt1x</Name>
+              <SIN>128</SIN>
+              <PIN>104</PIN>
+            </Field>
+            <Field xsi:type="PropertyField">
+              <Name>flowOv1x</Name>
+              <SIN>128</SIN>
+              <PIN>105</PIN>
+            </Field>
+            <Field xsi:type="PropertyField">
+              <Name>flowUt2x</Name>
+              <SIN>128</SIN>
+              <PIN>106</PIN>
+            </Field>
+            <Field xsi:type="PropertyField">
+              <Name>prop2x</Name>
+              <SIN>128</SIN>
+              <PIN>107</PIN>
+            </Field>
+            <Field xsi:type="PropertyField">
+              <Name>flowOv2x</Name>
+              <SIN>128</SIN>
+              <PIN>108</PIN>
+            </Field>
+            <Field xsi:type="PropertyField">
+              <Name>rpm_e2x</Name>
+              <SIN>128</SIN>
+              <PIN>109</PIN>
+            </Field>
+            <Field xsi:type="PropertyField">
+              <Name>runHour2x</Name>
+              <SIN>128</SIN>
+              <PIN>110</PIN>
+            </Field>
+            <Field xsi:type="PropertyField">
+              <Name>temp1x</Name>
+              <SIN>128</SIN>
+              <PIN>111</PIN>
+            </Field>
+            <Field xsi:type="PropertyField">
+              <Name>press1x</Name>
+              <SIN>128</SIN>
+              <PIN>112</PIN>
+            </Field>
+            <Field xsi:type="PropertyField">
+              <Name>temp2x</Name>
+              <SIN>128</SIN>
+              <PIN>113</PIN>
+            </Field>
+            <Field xsi:type="PropertyField">
+              <Name>press2x</Name>
+              <SIN>128</SIN>
+              <PIN>114</PIN>
+            </Field>
+            <Field xsi:type="PropertyField">
+              <Name>tegAkix</Name>
+              <SIN>128</SIN>
+              <PIN>151</PIN>
+            </Field>
+            <Field xsi:type="PropertyField">
+              <Name>chargerx</Name>
+              <SIN>128</SIN>
+              <PIN>152</PIN>
+            </Field>
+          </Fields>
+        </Message>
+        <Message>
+          <Name>PesanCilodong</Name>
+          <Description>Data gprs</Description>
+          <MIN>2</MIN>
+          <Fields>
+            <Field xsi:type="StringField">
+              <Name>file</Name>
+              <Size>30</Size>
+            </Field>
+            <Field xsi:type="StringField">
+              <Name>text</Name>
+              <Description>Data GPRS</Description>
+              <Size>6400</Size>
+            </Field>
           </Fields>
         </Message>
       </ReturnMessages>
@@ -238,6 +334,7 @@ local KURANG_DELAY = 50
 local WORKER_THREAD_DELAY = 100         -- 100/10 = 10 detik
 local DATA_DELAY = 600
 
+local MIN_SINYAL_GPRS = 15
 
 --
 -- Module Globals
@@ -842,8 +939,6 @@ end
 --]]
 
 
-
-
 local function bacabaca()
     --local isi_table = { }
     --isi_table = svcmgr.getInfo(20)
@@ -1269,6 +1364,20 @@ local function data_modbus()
     end
 end
 
+
+function sendReport1()
+  local id   = nil
+  local eror = nil
+  print(_NAME, ": sending report1 with text")
+--  local options = { priority=3, transports=tports }
+  --id, eror = messageHandle:send(1, {text="helloworld aji"}, {transports={{2, 1}} })
+  --local options = { priority=4, send=true, log=true, retry=true, retryInterval=15, transports={{svc.gprs.TRANSPORT_JSON, 1}} }   -- lifetime=60, 
+  local options = { priority=4, send=true, retryInterval=15, transports={{svc.gprs.TRANSPORT_JSON, 1}} }   -- lifetime=60, 
+  id, eror = messageHandle:send(2, {text="helloworld minimalis baru"}, options )
+  print("selesai kirim ",id, ", error: ", eror)
+  return id, eror
+end
+
 local function data_serial()
     --local tulis = "serial req thread\n"
     --serHandle.writestr(serHandle, tulis)
@@ -1276,6 +1385,15 @@ local function data_serial()
     local isWaitingData = nil          -- whether we are currently waiting for data on the serial port.
     local lSer = 0
     local hser = nil
+    local id   = nil
+    local eror = nil
+    
+    print("RSSI: ",svcmgr.getProp(29,40),", serverCon: ",svcmgr.getProp(29,46),", NetwAl: ",svcmgr.getProp(29,31),", LinkSt: ",svcmgr.getProp(29,33))
+    local rssi = svcmgr.getProp(29,40)
+    local servercon = svcmgr.getProp(29,46)
+    --if rssi&gt;=10 and rssi&lt;=35 and servercon==true then
+    if rssi&gt;=MIN_SINYAL_GPRS and rssi&lt;=35 then
+    
     
     --while true do       -- kirim multifile ke GPRS 
         local ser = serial_init()
@@ -1340,11 +1458,28 @@ local function data_serial()
                     --fixFile = table.concat(tblFile)
                     --print("isi: ",fixFile)
                     --print("jml File: ", #tblFile)
-                    file64 = base64.encode(isiFile)
-                    print("len:", string.len(file64),", isi: \n", file64)
+                    print("RSSI: ",svcmgr.getProp(29,40),", serverCon: ",svcmgr.getProp(29,46),", NetwAl: ",svcmgr.getProp(29,31),", LinkSt: ",svcmgr.getProp(29,33))
+                    --print("   coverOpen: ",svcmgr.getProp(29,43),", NetwSt: ",svcmgr.getProp(29,45) )
+                    local rssi = svcmgr.getProp(29,40)
+                    local servercon = svcmgr.getProp(29,46)
+                    --if rssi&gt;=10 and rssi&lt;=35 and servercon==true then
+                    if rssi&gt;=MIN_SINYAL_GPRS and rssi&lt;=35 then
+                        file64 = base64.encode(isiFile)
+                        --print("len:", string.len(file64),", isi: \n", file64)
+                        
+                        --local options = { priority=4, send=true, log=true, retry=true, retryInterval=15, transports={{svc.gprs.TRANSPORT_JSON, 1}} }   -- lifetime=60, 
+                        local options = { priority=4, send=true, log=true, retryInterval=15, transports={{svc.gprs.TRANSPORT_JSON, 2}} }   -- lifetime=60
+                        id, eror = messageHandle:send(2, {file=namaFile, text=file64}, options )
+                        
+                        print("id: ",id,", error: ", eror)
+                        --sendReport1()
+                        if (id&gt;0) then
+                            sched.delay(20)
+                            file_sukses_dikirim()
+                        end
+                    end
                     
-                    sched.delay(20)
-                    file_sukses_dikirim()
+                    
                     break
                 end
                 
@@ -1358,6 +1493,7 @@ local function data_serial()
         svc.serial.disconnect(serHandle)
         sched.delay(5)
     --end
+    end
     --]]
 end
 
@@ -1505,19 +1641,21 @@ end
 
 --[
 local function gprs_init()
-    svcmgr.setProp(29,51, "8080")             -- port
     svcmgr.setProp(29, 1, "")                   -- PIN
-    svcmgr.setProp(29, 2, "telkomsel")          -- APN
+    svcmgr.setProp(29, 2, "telkomsel")           -- APN
     svcmgr.setProp(29, 3, "wap")                -- username
     svcmgr.setProp(29, 4, "wap123")             -- password
     svcmgr.setProp(29, 5, "4.2.2.1")            -- DNS1
-    --svcmgr.setProp(29, 6, "")                   -- DNS2
-    --svcmgr.setProp(29,50, "http://118.96.107.182")     -- server
-    svcmgr.setProp(29,50, "http://66.228.59.51")     -- server
+    svcmgr.setProp(29, 6, "8.8.8.8")            -- DNS2
+    svcmgr.setProp(29, 9, "telkomsel")           -- APN
+    svcmgr.setProp(29,10, "wap")                -- username
+    svcmgr.setProp(29,11, "wap123")             -- password
+    svcmgr.setProp(29,12, "4.2.2.1")            -- DNS1
+    svcmgr.setProp(29,13, "8.8.8.8")            -- DNS2
+    svcmgr.setProp(29,54, 1)                    -- pool
+    svcmgr.setProp(29,50, "66.228.59.91")     -- server
     svcmgr.setProp(29,51, "8080")             -- port
-    --svcmgr.setProp(29,52, "http://118.96.107.182")     -- server
     svcmgr.setProp(29,53, "8080")             -- port
-    
     
     local dt = nil
     print("APN : ", svcmgr.getProp(29, 2) )
