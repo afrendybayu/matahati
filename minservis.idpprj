@@ -930,7 +930,7 @@ local function kirim_data_satelit()
     --antrix, errorx = messageHandle:send(1, {latx=lati,longx=longi,speedx=speedi,headx=headi})
     --antrix, errorx = messageHandle:send(1, fields, {transports={{svc.idp.TRANSPORT_ID, 10}}})
     
-    --antrix, errorx = messageHandle:send(1, {}, options)
+    antrix, errorx = messageHandle:send(1, {}, options)
     print(string.format("antri: %d", antrix))
     if antrix == 0 then
         print(string.format("error: %s", errorx))
@@ -1534,7 +1534,7 @@ local function timer_req()
     while true do       -- kirim multifile ke GPRS 
         flagTimer = 1
         perjam = perjam + 1
-        if perjam == 2 then             -- 2 menit: 1jam = 60menit
+        if perjam == 30 then             -- 2 menit: 1jam = 60menit
             print("====&gt; KIRIM DATA VIA SATELIT: ",os.date(),"\r\n")
             kirim_data_satelit()
             perjam = 0
