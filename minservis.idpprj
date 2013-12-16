@@ -1504,7 +1504,7 @@ local function kirim_req()
     print ("masuk fungsi kirim_req")
     local awalun = true
     while awalun do
-        print("Coba dulu 5 detik")
+        print("Coba lagi delay 5 detik")
         
         if svc.position.requestFix("3D", 5, 5) then
             bacabaca()
@@ -1513,12 +1513,14 @@ local function kirim_req()
         if DataAda == 1 then
             --kirim_data_satelit()
             awalun = false           
+            print("==== MENGUNCI LOKASI MODEM ====")
         end
         sched.delay(KURANG_DELAY)
         --
     end
     data_modbus()
     sched.delay(KURANG_DELAY)
+    
     
     print("Kirim Setiap 1 jam")
     --while true do
@@ -1633,9 +1635,9 @@ end
 
 local function shell_init()
     svc.shell.register("echo", echoCmd, "Print arguments")
-    svc.shell.register("cek_data", DataCmd, "Cek Data")
-    svc.shell.register("cek_lok", data_lokasi, "data Lokasi")
-    svc.shell.register("data", data_prop, "data Properti")
+    --svc.shell.register("cek_data", DataCmd, "Cek Data")
+    svc.shell.register("cek_lokasi", data_lokasi, "data Lokasi")
+    svc.shell.register("cek_data", data_prop, "data Properti")
     svc.shell.register("res", ResponSer, "data Properti")
 end
 
