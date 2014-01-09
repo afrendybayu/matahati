@@ -957,10 +957,11 @@ local function bacabaca()
     --
     pro = svcmgr.getProp(20,2)
     if pro==false then
-        --print("loop: ", merdeka, " FixValid mati: ", pro)
+        print("loop: ", merdeka, " FixValid mati: ", pro)
     end
     
-    if svcmgr.getProp(20,2) then
+    --if svcmgr.getProp(20,2) then
+    if (pro==true) then
         --print(string.format("---- FixValid loop = %d", merdeka))
         --print(string.format("source = %d ", svcmgr.getProp(20,1)) )
         --print(string.format("fixTipe = %d ", svcmgr.getProp(20,3)) )
@@ -983,7 +984,7 @@ local function bacabaca()
         --print(string.format("speed   = %d (%3.1f km/h)", speedi, speedi/5.4))
         --print(string.format("heading = %d (%2d dgrees)", headi, headi/10))
         --]]
-        --print(string.format("fixTime = %d ", svcmgr.getProp(20,11)) )
+        print(string.format("fixTime = %d ", svcmgr.getProp(20,11)) )
         --print(string.format("fixAge = %d ", svcmgr.getProp(20,12)) )
 
         DataAda = 1
@@ -994,6 +995,10 @@ local function bacabaca()
         simpan_float2uint32(speedi, 128, 134)
         simpan_float2uint32(waktui, 128, 135)
         --]]
+        
+        
+        pro = svcmgr.getProp(128,135)
+        print(string.format("fixTime = %.0f   %d  Properti", hexToFloat(Dec2Hex(pro)), pro  ) )
         
         
         --pro = svcmgr.setProp(128, 131, (-384177) )
@@ -1058,7 +1063,8 @@ local function workerThread()
             --messageHandle:send(1, {text = reportText})
             --[
             
-            if svc.position.requestFix("3D", 5, 5) then -- get 3D GPS fix immediately
+            --if svc.position.requestFix("3D", 5, 5) then -- get 3D GPS fix immediately
+            if svc.position.requestFix("2D", 5, 5) then -- get 3D GPS fix immediately
                 --print(" -----&gt; requestFix(3D, 5, 5)")
                 bacabaca()
                 --tracef("** [D] %s - %s: SUCCEEDED requesting a GPS fix from position service. ", os.date(), _NAME)
@@ -1581,6 +1587,7 @@ function data_lokasi()
         print(string.format("Alti    = %d", alti ))
         print(string.format("speed   = %3.1f km/h", speedi))
         print(string.format("heading = %2d dgrees", headi))
+        print(string.format("waktu   = %2d", waktui))
     else
         print("Masih mencari DataFix")
     end
