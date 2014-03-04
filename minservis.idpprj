@@ -176,14 +176,13 @@ Format:
       </Properties>
       <ForwardMessages>
         <Message>
-          <Name>NewMessage</Name>
-          <Description>Nama file yg sudah terkirim</Description>
+          <Name>GunungMalang</Name>
           <MIN>3</MIN>
           <Fields>
             <Field xsi:type="StringField">
               <Name>namafile</Name>
               <Size>30</Size>
-              <Default>""</Default>
+              <Default>namafile.str</Default>
             </Field>
           </Fields>
         </Message>
@@ -1567,6 +1566,11 @@ local function timer_req()
     end
 end
 
+local function cek_namafile_terkirim()
+    print("cari file terkirim terakhir")
+    --local options = { priority=1, send=true, log=true, retryInterval=15, transports={{svc.gprs.TRANSPORT_JSON, 2}} }   -- lifetime=60
+    --local id, eror = messageHandle:send(3, {}, options )
+end
 
 local function transaksi_req()
     kirim_req()
@@ -1581,6 +1585,8 @@ local function transaksi_req()
             flagTimer = 0
             --print("---&gt; tendang data ke monita ",os.date()," ", waktui)
             sched.delay(2)
+            cek_namafile_terkirim()
+            sched.delay(20)
             data_modbus()
             sched.delay(2)
             data_serial()
@@ -1661,6 +1667,7 @@ local function shell_init()
     svc.shell.register("cek_lokasi", data_lokasi, "data Lokasi")
     svc.shell.register("cek_data", data_prop, "data Properti")
     svc.shell.register("res", ResponSer, "data Properti")
+    
 end
 
 --[
@@ -1711,6 +1718,10 @@ local function gprs_init()
 end
 --]]
 
+local function terimaReq(msg)
+    print(_NAME, ": received request1 with text = ", msg.fields.namafile)
+end
+
 --
 -- Run service (required)
 --
@@ -1727,11 +1738,28 @@ function entry()
     gprs_init()
     
     baca_properti()
+    local msgTable = { terimaReq }
+    local msgQ = sched.createEventQ(5, messageHandle, 'RX_DECODED')
     transaksiThreadHandle = sched.spawn("transaksi_thread", transaksi_req)
     sched.delay(1)
     
     timerThreadHandle = sched.spawn("timer_thread", timer_req)
     
+    while true do
+        local q,event,args = sched.waitQ(50, msgQ)
+        if q == msgQ then
+            print("ada pesan masuk");
+            
+            local msg = args
+            if msgTable[msg.min] then
+                msgTable[msg.min](msg)
+            end
+            
+        else
+        -- should not happen
+        end
+    end
+
     
     --[[
     local mb = modbus_init()
