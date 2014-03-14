@@ -177,10 +177,10 @@ Format:
       <ForwardMessages>
         <Message>
           <Name>GunungMalang</Name>
-          <MIN>3</MIN>
+          <MIN>1</MIN>
           <Fields>
             <Field xsi:type="StringField">
-              <Name>namafile</Name>
+              <Name>text</Name>
               <Size>30</Size>
               <Default>namafile.str</Default>
             </Field>
@@ -1408,7 +1408,8 @@ local function data_serial()
     local id   = nil
     local eror = nil
     
-    print("RSSI: ",svcmgr.getProp(29,40),", serverCon: ",svcmgr.getProp(29,46),", NetwAl: ",svcmgr.getProp(29,31),", LinkSt: ",svcmgr.getProp(29,33))
+    local antri = svcmgr.getProp(18,21)
+    print("RSSI: ",svcmgr.getProp(29,40),", antrian: ",antri,", serverCon: ",svcmgr.getProp(29,46),", NetwAl: ",svcmgr.getProp(29,31),", LinkSt: ",svcmgr.getProp(29,33))
     local rssi = svcmgr.getProp(29,40)
     local servercon = svcmgr.getProp(29,46)
     --if rssi&gt;=10 and rssi&lt;=35 and servercon==true then
@@ -1568,8 +1569,9 @@ end
 
 local function cek_namafile_terkirim()
     print("cari file terkirim terakhir")
-    --local options = { priority=1, send=true, log=true, retryInterval=15, transports={{svc.gprs.TRANSPORT_JSON, 2}} }   -- lifetime=60
+    --local options = { priority=1, send=false, log=true, retryInterval=15, transports={{svc.gprs.TRANSPORT_JSON, 2}} }   -- lifetime=60----
     --local id, eror = messageHandle:send(3, {}, options )
+    print("id: ",id," error: ",eror)
 end
 
 local function transaksi_req()
@@ -1585,7 +1587,7 @@ local function transaksi_req()
             flagTimer = 0
             --print("---&gt; tendang data ke monita ",os.date()," ", waktui)
             sched.delay(2)
-            cek_namafile_terkirim()
+            --cek_namafile_terkirim()
             sched.delay(20)
             data_modbus()
             sched.delay(2)
@@ -1667,6 +1669,7 @@ local function shell_init()
     svc.shell.register("cek_lokasi", data_lokasi, "data Lokasi")
     svc.shell.register("cek_data", data_prop, "data Properti")
     svc.shell.register("res", ResponSer, "data Properti")
+    svc.shell.register("kirim_satelit", kirim_data_satelit, "Kirim data ke satelit segera")
     
 end
 
@@ -1719,7 +1722,7 @@ end
 --]]
 
 local function terimaReq(msg)
-    print(_NAME, ": received request1 with text = ", msg.fields.namafile)
+    print(_NAME, ": received request1 with text = ", msg.fields.text)
 end
 
 --
@@ -1733,7 +1736,7 @@ function entry()
     
     merdeka = 0
     print ("masuk thread worker")
-    --modbusThreadHandle = sched.spawn("worker_thread", workerThread)
+    modbusThreadHandle = sched.spawn("worker_thread", workerThread)
     
     gprs_init()
     
@@ -1745,10 +1748,14 @@ function entry()
     
     timerThreadHandle = sched.spawn("timer_thread", timer_req)
     
+    ---[[
+    local kali = 0
     while true do
-        local q,event,args = sched.waitQ(50, msgQ)
+        kali = kali + 1
+        print("masuk ....", kali, ", RSSI: ",svcmgr.getProp(29,40),", serverCon: ",svcmgr.getProp(29,46),", NetwAl: ",svcmgr.getProp(29,31),", LinkSt: ",svcmgr.getProp(29,33))
+        local q,event,args = sched.waitQ(5, msgQ)
         if q == msgQ then
-            print("ada pesan masuk");
+            print("&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;    ada pesan masuk");
             
             local msg = args
             if msgTable[msg.min] then
@@ -1757,9 +1764,11 @@ function entry()
             
         else
         -- should not happen
+            --print("     xxx ")
         end
+        sched.delay(50)
     end
-
+    --]]
     
     --[[
     local mb = modbus_init()
@@ -1822,11 +1831,5 @@ end
       </SourceFiles>
     </Service>
   </Services>
-  <PropertyValues>
-    <PropertyValue xsi:type="BooleanPropertyValue">
-      <SIN>19</SIN>
-      <PIN>1</PIN>
-      <Value>false</Value>
-    </PropertyValue>
-  </PropertyValues>
+  <PropertyValues />
 </Project>
