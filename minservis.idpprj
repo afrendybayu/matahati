@@ -347,7 +347,7 @@ local KURANG_DELAY = 50
 local WORKER_THREAD_DELAY = 100         -- 100/10 = 10 detik
 local DATA_DELAY = 600
 
-local MIN_SINYAL_GPRS = 15
+local MIN_SINYAL_GPRS = 18
 
 --
 -- Module Globals
@@ -369,7 +369,8 @@ local timerThreadHandle = nil
 
 local serHandle = nil         -- handle sending and receiving data over serial port.
 local serQ                    -- event queue associated with the RS232 serial port.
-
+local fileDihapuskan = nil
+local flagHapus = nil
 
 
 local timer
@@ -711,7 +712,7 @@ local function writeHoldingRegister(pin, idslave, register, base, jml, tPin)
     --local data = {}
     --[
     if (success==true) then 
-        print("+++++ Sukses writeHoldingReg")
+        trace("+++++ Sukses writeHoldingReg")
         return true
     else
         --trace("ERROR: ", error, ". Function writereg(). Address (", mod_address,") ",os.date())
@@ -733,7 +734,7 @@ local function readHoldingRegister(pin, idslave, register, base, bit, tpin)
     local simpan
     --[
     if success then
-        print ("sukses !! terima data, count: ", count)
+        trace("sukses !! terima data, count: ", count)
         local buf = sys.buffer.create(data)
         if tonumber(bit) == 1 then
             extracted_value = buf:getInt16()
@@ -981,8 +982,8 @@ local function bacabaca()
         --[
         lati   = svcmgr.getProp(20,6)*6/360000
         longi  = svcmgr.getProp(20,7)*6/360000
-        alti   = svcmgr.getProp(20,8)
-        speedi = svcmgr.getProp(20,9)/5.4
+        alti   = svcmgr.getProp(20,8)/10
+        speedi = svcmgr.getProp(20,9)/10
         headi  = svcmgr.getProp(20,10)/10
         
         lats   = svcmgr.getProp(20,6)
@@ -1212,10 +1213,6 @@ local function num2strb(num,optionalNumberOfBytes)
     return retString
 end
 
-local function file_sukses_dikirim()
-    print("-----&gt; sukses terkirim serial file: ", namaFile,"\n")
-    serHandle:writeframe(0x11,0x26,0x00,string.len(namaFile),namaFile)
-end
 
 local function onFrameReceived(success, FrE)
  --   serHandle.writestr(serHandle, frameOrError)
@@ -1413,7 +1410,7 @@ local function data_serial()
     local rssi = svcmgr.getProp(29,40)
     local servercon = svcmgr.getProp(29,46)
     --if rssi&gt;=10 and rssi&lt;=35 and servercon==true then
-    if rssi&gt;=MIN_SINYAL_GPRS and rssi&lt;=35 then
+    if rssi&gt;=MIN_SINYAL_GPRS and rssi&lt;=35 and antri&gt;=12 then
     
     
     --while true do       -- kirim multifile ke GPRS 
@@ -1494,10 +1491,12 @@ local function data_serial()
                         
                         print("id: ",id,", error: ", eror)
                         --sendReport1()
+                        --[[
                         if (id&gt;0) then
                             sched.delay(20)
                             file_sukses_dikirim()
                         end
+                        --]]
                     end
                     
                     
@@ -1516,6 +1515,26 @@ local function data_serial()
     --end
     end
     --]]
+end
+
+local function file_sukses_dikirim()
+    print("masuk fungsi file dikirim: ",fileDihapuskan)
+    local ser = serial_init()
+    ---[[
+    
+    sched.delay(2)
+        
+    if ser then
+        print("-----&gt; sukses terkirim serial file: ", fileDihapuskan,"\n")
+        serHandle:writeframe(0x11,0x26,0x00,string.len(fileDihapuskan),fileDihapuskan)
+    end
+    --]]
+    print("diskonek serial")
+    sched.delay(5)
+    svc.serial.disconnect(serHandle)
+    sched.delay(5)
+
+    print("selesai dihapus")
 end
 
 
@@ -1563,7 +1582,7 @@ local function timer_req()
             perjam = 0
         end
         sched.delay(DATA_DELAY)     -- cek permenit = 600
-        
+        --sched.delay(100)     -- cek permenit = 600
     end
 end
 
@@ -1591,6 +1610,10 @@ local function transaksi_req()
             sched.delay(20)
             data_modbus()
             sched.delay(2)
+            if flagHapus == 1 then
+                file_sukses_dikirim()
+                flagHapus = 0
+            end
             data_serial()
         end
         sched.delay(10)         -- 10 = 1 detik
@@ -1608,7 +1631,7 @@ function data_lokasi()
         print(string.format("lat     = %3.5f degrees", lati ))
         print(string.format("lon     = %3.5f degrees", longi ))
         print(string.format("Alti    = %d", alti ))
-        print(string.format("speed   = %3.1f km/h", speedi))
+        print(string.format("speed   = %3.1f knot", speedi))
         print(string.format("heading = %2d dgrees", headi))
         print(string.format("waktu   = %2d", waktui))
     else
@@ -1686,7 +1709,7 @@ local function gprs_init()
     svcmgr.setProp(29,11, "wap123")             -- password
     svcmgr.setProp(29,12, "4.2.2.1")            -- DNS1
     svcmgr.setProp(29,13, "8.8.8.8")            -- DNS2
-    svcmgr.setProp(29,54, 1)                    -- pool
+    svcmgr.setProp(29,54, 60)                    -- pool
     svcmgr.setProp(29,50, "66.228.59.91")     -- server
     svcmgr.setProp(29,51, "8080")             -- port
     svcmgr.setProp(29,53, "8080")             -- port
@@ -1723,6 +1746,8 @@ end
 
 local function terimaReq(msg)
     print(_NAME, ": received request1 with text = ", msg.fields.text)
+    fileDihapuskan = msg.fields.text
+    flagHapus = 1
 end
 
 --
@@ -1744,6 +1769,8 @@ function entry()
     local msgTable = { terimaReq }
     local msgQ = sched.createEventQ(5, messageHandle, 'RX_DECODED')
     transaksiThreadHandle = sched.spawn("transaksi_thread", transaksi_req)
+    
+    
     sched.delay(1)
     
     timerThreadHandle = sched.spawn("timer_thread", timer_req)
@@ -1751,8 +1778,9 @@ function entry()
     ---[[
     local kali = 0
     while true do
+    
         kali = kali + 1
-        print("masuk ....", kali, ", RSSI: ",svcmgr.getProp(29,40),", serverCon: ",svcmgr.getProp(29,46),", NetwAl: ",svcmgr.getProp(29,31),", LinkSt: ",svcmgr.getProp(29,33))
+        --print("masuk ....", kali, ", RSSI: ",svcmgr.getProp(29,40),", serverCon: ",svcmgr.getProp(29,46),", NetwAl: ",svcmgr.getProp(29,31),", LinkSt: ",svcmgr.getProp(29,33))
         local q,event,args = sched.waitQ(5, msgQ)
         if q == msgQ then
             print("&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;    ada pesan masuk");
@@ -1766,8 +1794,10 @@ function entry()
         -- should not happen
             --print("     xxx ")
         end
-        sched.delay(50)
+        --sched.delay(5)
     end
+    
+    print(" sampe sini    xxx ")
     --]]
     
     --[[
