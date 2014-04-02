@@ -54,7 +54,7 @@ Format:
      &lt;pin data&gt; ;
 </Description>
           <PIN>2</PIN>
-          <Value>17;41021;0;1;5;131;000;</Value>
+          <Value>17;41021;0;1;6;131;000;</Value>
         </Property>
         <Property xsi:type="StringProperty">
           <Name>mb3_monita_bat_req</Name>
@@ -164,6 +164,11 @@ Format:
         <Property xsi:type="SignedIntProperty">
           <Name>mb35_sat_time</Name>
           <PIN>135</PIN>
+        </Property>
+        <Property xsi:type="SignedIntProperty">
+          <Name>mb36_gprs_sign</Name>
+          <PIN>136</PIN>
+          <Value>99</Value>
         </Property>
         <Property xsi:type="SignedIntProperty">
           <Name>mb51_bat_teg</Name>
@@ -347,7 +352,8 @@ local KURANG_DELAY = 50
 local WORKER_THREAD_DELAY = 100         -- 100/10 = 10 detik
 local DATA_DELAY = 600
 
-local MIN_SINYAL_GPRS = 18
+local TIMEOUT_KIRIM_FILE = 4
+local MIN_SINYAL_GPRS = 15
 
 --
 -- Module Globals
@@ -911,6 +917,7 @@ local alti
 local headi, heads
 local speedi, speeds
 local waktui
+local signali
 local DataAda = nil
 
 --[
@@ -985,6 +992,7 @@ local function bacabaca()
         alti   = svcmgr.getProp(20,8)/10
         speedi = svcmgr.getProp(20,9)/10
         headi  = svcmgr.getProp(20,10)/10
+        signali= svcmgr.getProp(29,40)
         
         lats   = svcmgr.getProp(20,6)
         longs  = svcmgr.getProp(20,7)
@@ -1008,6 +1016,7 @@ local function bacabaca()
         simpan_float2uint32(headi,  128, 133)
         simpan_float2uint32(speedi, 128, 134)
         simpan_float2uint32(waktui, 128, 135)
+        simpan_float2uint32(signali,128, 136)
         --]]
         
         
@@ -1404,13 +1413,14 @@ local function data_serial()
     local hser = nil
     local id   = nil
     local eror = nil
+    local dikirim = false
     
     local antri = svcmgr.getProp(18,21)
     print("RSSI: ",svcmgr.getProp(29,40),", antrian: ",antri,", serverCon: ",svcmgr.getProp(29,46),", NetwAl: ",svcmgr.getProp(29,31),", LinkSt: ",svcmgr.getProp(29,33))
     local rssi = svcmgr.getProp(29,40)
     local servercon = svcmgr.getProp(29,46)
     --if rssi&gt;=10 and rssi&lt;=35 and servercon==true then
-    if rssi&gt;=MIN_SINYAL_GPRS and rssi&lt;=35 and antri&gt;=12 then
+    if rssi&gt;=MIN_SINYAL_GPRS and rssi&lt;=35 and antri&lt;=10 then
     
     
     --while true do       -- kirim multifile ke GPRS 
@@ -1490,11 +1500,11 @@ local function data_serial()
                         id, eror = messageHandle:send(2, {file=namaFile, text=file64}, options )
                         
                         print("id: ",id,", error: ", eror)
+                        
                         --sendReport1()
-                        --[[
+                        ---[[
                         if (id&gt;0) then
-                            sched.delay(20)
-                            file_sukses_dikirim()
+                            dikirim = true
                         end
                         --]]
                     end
@@ -1515,6 +1525,8 @@ local function data_serial()
     --end
     end
     --]]
+    
+    return dikirim
 end
 
 local function file_sukses_dikirim()
@@ -1597,6 +1609,9 @@ local function transaksi_req()
     kirim_req()
     kirim_data_satelit()            -- kirim dulu diawal modul power ON 
 
+    local timeout = 0
+    local dikirim = nil
+
     sched.delay(WORKER_THREAD_DELAY)
     while true do       -- kirim multifile ke GPRS 
         if svc.position.requestFix("3D", 5, 5) then
@@ -1607,14 +1622,24 @@ local function transaksi_req()
             --print("---&gt; tendang data ke monita ",os.date()," ", waktui)
             sched.delay(2)
             --cek_namafile_terkirim()
-            sched.delay(20)
+            --sched.delay(20)
             data_modbus()
             sched.delay(2)
             if flagHapus == 1 then
                 file_sukses_dikirim()
                 flagHapus = 0
             end
-            data_serial()
+            
+            --dikirim = data_serial()
+            if timeout&lt;=0 then
+                dikirim = data_serial()
+                if dikirim then
+                    timeout = TIMEOUT_KIRIM_FILE
+                end
+            else
+                timeout = timeout - 1    
+            end
+            
         end
         sched.delay(10)         -- 10 = 1 detik
     end
@@ -1634,6 +1659,7 @@ function data_lokasi()
         print(string.format("speed   = %3.1f knot", speedi))
         print(string.format("heading = %2d dgrees", headi))
         print(string.format("waktu   = %2d", waktui))
+        print(string.format("signal  = %2d", signali))
     else
         print("Masih mencari DataFix")
     end
